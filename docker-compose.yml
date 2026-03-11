@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: quiz-server-dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:./dev.db
+      - JWT_SECRET=your-secret-key-change-this-in-production
+      - PORT=3001
+    volumes:
+      - ./server:/app
+      - server-node-modules:/app/node_modules
+      - server-data:/app/prisma
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run dev"
+    networks:
+      - quiz-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    container_name: quiz-client-dev
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=/api
+      - VITE_API_TARGET=http://host.docker.internal:3001
+    volumes:
+      - ./client:/app
+      - client-node-modules:/app/node_modules
+    depends_on:
+      - server
+    networks:
+      - quiz-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  server-node-modules:
+  client-node-modules:
+  server-data:
+
+networks:
+  quiz-network:
+    driver: bridge

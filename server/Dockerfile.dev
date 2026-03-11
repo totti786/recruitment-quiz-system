@@ -1,0 +1,31 @@
+# Development Dockerfile for Server
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies for Prisma and SQLite
+RUN apk add --no-cache openssl
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including devDependencies)
+RUN npm install
+
+# Copy prisma schema
+COPY prisma ./prisma/
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Copy server code
+COPY . .
+
+# Create uploads directory
+RUN mkdir -p uploads
+
+# Expose port
+EXPOSE 3001
+
+# Start in development mode with hot reload
+CMD ["npm", "run", "dev"]

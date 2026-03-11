@@ -1,0 +1,26 @@
+{
+  "name": "recruitment-quiz-system",
+  "version": "1.0.0",
+  "description": "Local-first recruitment quiz and testing system for interviews",
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\"",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "setup": "npm run install:all && cd server && npx prisma migrate dev && npx prisma db seed",
+    "docker:dev": "docker-compose up --build",
+    "docker:dev:detach": "docker-compose up -d --build",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up --build -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:db:migrate": "docker-compose exec server npx prisma migrate dev",
+    "docker:db:seed": "docker-compose exec server npx prisma db seed",
+    "docker:db:reset": "docker-compose exec server npx prisma migrate reset --force"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": ["quiz", "recruitment", "interview", "testing"],
+  "author": "Internal Team",
+  "license": "MIT"
+}

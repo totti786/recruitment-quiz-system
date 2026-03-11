@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Department {
+  id          Int         @id @default(autoincrement())
+  name        String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  positions   Position[]
+  candidates  Candidate[]
+}
+
+model Position {
+  id            Int         @id @default(autoincrement())
+  name          String
+  departmentId  Int
+  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  candidates    Candidate[]
+
+  @@index([departmentId])
+}
+
+model Candidate {
+  id              Int               @id @default(autoincrement())
+  name            String
+  phoneNumber     String
+  email           String?
+  departmentId    Int
+  positionId      Int
+  notes           String?
+  department      Department        @relation(fields: [departmentId], references: [id])
+  position        Position          @relation(fields: [positionId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  sessions        CandidateSession[]
+
+  @@index([departmentId])
+  @@index([positionId])
+}
+
+model Quiz {
+  id          Int            @id @default(autoincrement())
+  name        String
+  description String?
+  category    String
+  questionCount Int          @default(10)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  sessionQuizzes SessionQuiz[]
+}
+
+model Session {
+  id          Int            @id @default(autoincrement())
+  name        String
+  description String?
+  timeLimit   Int            @default(60)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  quizzes     SessionQuiz[]
+  candidateSessions CandidateSession[]
+}
+
+model SessionQuiz {
+  id          Int      @id @default(autoincrement())
+  sessionId   Int
+  quizId      Int
+  order       Int
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, quizId])
+}
+
+model CandidateSession {
+  id              Int          @id @default(autoincrement())
+  candidateId     Int
+  sessionId       Int
+  currentQuizIndex Int         @default(0)
+  startedAt       DateTime     @default(now())
+  completedAt     DateTime?
+  status          String       @default("ACTIVE")
+  timeRemaining   Int          // in seconds
+  candidate       Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  session         Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answers         Answer[]
+  
+  @@unique([candidateId, sessionId])
+}
+
+model Question {
+  id           Int            @id @default(autoincrement())
+  questionText String
+  type         String         // MULTIPLE_CHOICE, SHORT_ANSWER, CODE
+  category     String
+  difficulty   String         // EASY, MEDIUM, HARD
+  codeSnippet  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  choices      Choice[]
+  answers      Answer[]
+}
+
+model Choice {
+  id         Int      @id @default(autoincrement())
+  questionId Int
+  choiceText String
+  isCorrect  Boolean  @default(false)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers    Answer[]
+}
+
+model Answer {
+  id               Int              @id @default(autoincrement())
+  candidateSessionId Int
+  questionId       Int
+  selectedChoiceId Int?
+  textAnswer       String?
+  isCorrect        Boolean?
+  answeredAt       DateTime         @default(now())
+  candidateSession CandidateSession @relation(fields: [candidateSessionId], references: [id], onDelete: Cascade)
+  selectedChoice   Choice?          @relation(fields: [selectedChoiceId], references: [id])
+  question         Question         @relation(fields: [questionId], references: [id])
+}
