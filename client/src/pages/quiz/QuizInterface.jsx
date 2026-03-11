@@ -37,21 +37,29 @@ export default function QuizInterface() {
     const session = JSON.parse(storedSession)
     setSessionData(session)
     setCandidateSessionId(session.candidateSessionId)
-    setTimeRemaining(session.timeLimit)
+    setTimeRemaining(session.timeRemaining)
     
-    // Load first quiz
-    loadQuiz(session.candidateSessionId, 0)
+    // Load quiz from the stored currentQuizIndex or 0
+    const quizIndex = session.currentQuizIndex || 0
+    loadQuiz(session.candidateSessionId, quizIndex)
   }, [navigate])
 
   // Load quiz questions
   const loadQuiz = async (candidateSessionId, quizIndex) => {
+    setLoading(true)
     try {
       const data = await quizSessionsApi.getQuizQuestions(candidateSessionId, quizIndex)
       setQuestions(data.questions)
       setAnswers(data.answers || {})
-      setCurrentQuizIndex(quizIndex)
+      setCurrentQuizIndex(data.currentQuizIndex)
       setCurrentQuestion(0)
       setLoading(false)
+      
+      // Update stored session with current quiz index
+      const storedSession = JSON.parse(sessionStorage.getItem('candidateSession') || '{}')
+      storedSession.currentQuizIndex = data.currentQuizIndex
+      storedSession.totalQuizzes = data.totalQuizzes
+      sessionStorage.setItem('candidateSession', JSON.stringify(storedSession))
     } catch (err) {
       setError('Failed to load quiz')
       setLoading(false)
@@ -60,7 +68,7 @@ export default function QuizInterface() {
 
   // Timer - global for entire session
   useEffect(() => {
-    if (!sessionData || timeRemaining <= 0) return
+    if (!sessionData || timeRemaining <= 0 || submitting) return
 
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
@@ -72,7 +80,7 @@ export default function QuizInterface() {
         }
         
         if (newTime <= 0) {
-          handleSubmitSession()
+          handleTimeExpired()
           return 0
         }
         return newTime
@@ -80,7 +88,7 @@ export default function QuizInterface() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [sessionData, timeRemaining, candidateSessionId])
+  }, [sessionData, timeRemaining, candidateSessionId, submitting])
 
   // Tab switching detection
   useEffect(() => {
@@ -147,6 +155,11 @@ export default function QuizInterface() {
         // All quizzes complete
         navigate('/quiz/complete')
       } else {
+        // Update stored session with new quiz index
+        const storedSession = JSON.parse(sessionStorage.getItem('candidateSession') || '{}')
+        storedSession.currentQuizIndex = result.nextQuizIndex
+        sessionStorage.setItem('candidateSession', JSON.stringify(storedSession))
+        
         // Load next quiz
         loadQuiz(candidateSessionId, result.nextQuizIndex)
       }
@@ -167,6 +180,18 @@ export default function QuizInterface() {
       navigate('/quiz/complete')
     } catch (err) {
       setError(err.message || 'Failed to submit session')
+      setSubmitting(false)
+    }
+  }
+
+  const handleTimeExpired = async () => {
+    setSubmitting(true)
+    try {
+      await quizSessionsApi.submitSession(candidateSessionId)
+      sessionStorage.removeItem('candidateSession')
+      navigate('/quiz/complete')
+    } catch (err) {
+      setError('Time expired but failed to auto-submit. Please click Submit.')
       setSubmitting(false)
     }
   }

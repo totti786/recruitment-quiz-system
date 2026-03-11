@@ -37,7 +37,9 @@ export default function QuizAccess() {
       sessionId: session.sessionId,
       candidateSessionId: session.id,
       sessionName: session.session.name,
-      timeLimit: session.timeRemaining
+      timeRemaining: session.timeRemaining,
+      currentQuizIndex: 0,
+      totalQuizzes: session.session.quizzes.length
     }))
     navigate('/quiz/session')
   }

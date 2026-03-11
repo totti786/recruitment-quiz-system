@@ -116,10 +116,17 @@ router.get('/results', authenticateToken, async (req, res) => {
 // Get detailed result for a specific session
 router.get('/results/:sessionId', authenticateToken, async (req, res) => {
   try {
+    const candidateSessionId = parseInt(req.params.sessionId)
+    
     const session = await prisma.candidateSession.findUnique({
-      where: { id: parseInt(req.params.sessionId) },
+      where: { id: candidateSessionId },
       include: {
-        candidate: true,
+        candidate: {
+          include: {
+            department: true,
+            position: true
+          }
+        },
         session: {
           include: {
             quizzes: {
@@ -179,16 +186,26 @@ router.get('/results/:sessionId', authenticateToken, async (req, res) => {
       }
     }))
 
+    // Return in format expected by frontend
     res.json({
-      session: {
+      quiz: {
         id: session.id,
-        candidate: session.candidate,
-        session: session.session,
+        candidate: {
+          name: session.candidate.name,
+          email: session.candidate.email,
+          position: session.candidate.position?.name || '-',
+          department: session.candidate.department?.name || '-'
+        },
+        session: {
+          name: session.session.name,
+          description: session.session.description
+        },
         score: score,
         status: session.status,
         startedAt: session.startedAt,
         completedAt: session.completedAt,
-        timeTaken
+        timeTaken,
+        totalQuizzes: session.session.quizzes.length
       },
       questions
     })
