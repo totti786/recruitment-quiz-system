@@ -160,31 +160,74 @@ router.get('/results/:sessionId', authenticateToken, async (req, res) => {
       ? Math.round((new Date(session.completedAt) - new Date(session.startedAt)) / 1000 / 60)
       : null
 
-    // Calculate score
+    // Calculate overall score
     const mcAnswers = session.answers.filter(a => a.question.type === 'MULTIPLE_CHOICE')
     const correctCount = mcAnswers.filter(a => a.isCorrect).length
     const totalMC = mcAnswers.length
     const score = totalMC > 0 ? (correctCount / totalMC) * 100 : 0
 
-    // Group answers by question
-    const questions = session.answers.map(answer => ({
-      id: answer.id,
-      question: {
-        id: answer.question.id,
-        questionText: answer.question.questionText,
-        type: answer.question.type,
-        category: answer.question.category,
-        difficulty: answer.question.difficulty,
-        codeSnippet: answer.question.codeSnippet,
-        choices: answer.question.choices
-      },
-      answer: {
-        selectedChoiceId: answer.selectedChoiceId,
-        selectedChoiceText: answer.selectedChoice?.choiceText,
-        textAnswer: answer.textAnswer,
-        isCorrect: answer.isCorrect
+    // Build category to quiz mapping
+    const categoryToQuiz = {}
+    session.session.quizzes.forEach((sq, idx) => {
+      categoryToQuiz[sq.quiz.category] = {
+        index: idx,
+        quiz: sq.quiz
       }
-    }))
+    })
+
+    // Group answers by quiz based on question category
+    const quizzesMap = {}
+    session.session.quizzes.forEach((sq, idx) => {
+      quizzesMap[idx] = {
+        quizIndex: idx,
+        quiz: {
+          id: sq.quiz.id,
+          name: sq.quiz.name,
+          description: sq.quiz.description,
+          category: sq.quiz.category
+        },
+        questions: []
+      }
+    })
+
+    session.answers.forEach(answer => {
+      const quizInfo = categoryToQuiz[answer.question.category]
+      if (quizInfo) {
+        quizzesMap[quizInfo.index].questions.push({
+          id: answer.id,
+          question: {
+            id: answer.question.id,
+            questionText: answer.question.questionText,
+            type: answer.question.type,
+            category: answer.question.category,
+            difficulty: answer.question.difficulty,
+            codeSnippet: answer.question.codeSnippet,
+            choices: answer.question.choices
+          },
+          answer: {
+            selectedChoiceId: answer.selectedChoiceId,
+            selectedChoiceText: answer.selectedChoice?.choiceText,
+            textAnswer: answer.textAnswer,
+            isCorrect: answer.isCorrect
+          }
+        })
+      }
+    })
+
+    // Calculate per-quiz scores
+    const quizzes = Object.values(quizzesMap).map(q => {
+      const quizMC = q.questions.filter(item => item.question.type === 'MULTIPLE_CHOICE')
+      const quizCorrect = quizMC.filter(item => item.answer?.isCorrect).length
+      const quizTotal = quizMC.length
+      const quizScore = quizTotal > 0 ? (quizCorrect / quizTotal) * 100 : null
+      
+      return {
+        ...q,
+        score: quizScore,
+        correctCount: quizCorrect,
+        totalQuestions: quizTotal
+      }
+    })
 
     // Return in format expected by frontend
     res.json({
@@ -207,7 +250,7 @@ router.get('/results/:sessionId', authenticateToken, async (req, res) => {
         timeTaken,
         totalQuizzes: session.session.quizzes.length
       },
-      questions
+      quizzes
     })
   } catch (error) {
     console.error('Get session result error:', error)

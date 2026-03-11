@@ -135,11 +135,16 @@ export default function QuizInterface() {
       [questionId]: { ...answerData, questionId }
     }))
 
+    // Get current quiz index from session storage
+    const storedSession = JSON.parse(sessionStorage.getItem('candidateSession') || '{}')
+    const quizIndex = storedSession.currentQuizIndex || 0
+
     // Submit answer to server
     try {
       await quizSessionsApi.submitAnswer({
         candidateSessionId,
         questionId,
+        quizIndex,
         ...answerData
       })
     } catch (err) {
@@ -272,15 +277,6 @@ export default function QuizInterface() {
         <div className="card">
           {/* Question */}
           <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full">
-                {question.category}
-              </span>
-              <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full">
-                {question.difficulty}
-              </span>
-            </div>
-
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               {question.questionText}
             </h2>

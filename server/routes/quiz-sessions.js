@@ -194,6 +194,7 @@ router.get('/session/:candidateSessionId/quiz/:quizIndex', async (req, res) => {
 router.post('/answer', [
   body('candidateSessionId').isInt(),
   body('questionId').isInt(),
+  body('quizIndex').optional().isInt(),
   body('selectedChoiceId').optional().isInt(),
   body('textAnswer').optional().trim()
 ], async (req, res) => {
@@ -202,7 +203,7 @@ router.post('/answer', [
     return res.status(400).json({ errors: errors.array() })
   }
 
-  const { candidateSessionId, questionId, selectedChoiceId, textAnswer } = req.body
+  const { candidateSessionId, questionId, quizIndex, selectedChoiceId, textAnswer } = req.body
 
   try {
     // Get question to check if correct
@@ -233,7 +234,8 @@ router.post('/answer', [
         data: {
           selectedChoiceId: selectedChoiceId || null,
           textAnswer: textAnswer || null,
-          isCorrect
+          isCorrect,
+          quizIndex: quizIndex !== undefined ? quizIndex : null
         }
       })
     } else {
@@ -241,6 +243,7 @@ router.post('/answer', [
         data: {
           candidateSessionId,
           questionId,
+          quizIndex: quizIndex !== undefined ? quizIndex : null,
           selectedChoiceId: selectedChoiceId || null,
           textAnswer: textAnswer || null,
           isCorrect

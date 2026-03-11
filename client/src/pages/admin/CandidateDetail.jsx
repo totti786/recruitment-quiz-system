@@ -90,25 +90,25 @@ export default function CandidateDetail() {
             </div>
           </div>
           
-          {latestSession && (
-            <div className="text-right">
-              {latestSession.status === 'COMPLETED' ? (
-                <div>
-                  <span className={`text-3xl font-bold ${
-                    latestSession.score >= 70 ? 'text-green-600' : 
-                    latestSession.score >= 50 ? 'text-yellow-600' : 'text-red-600'
-                  }`}>
-                    {latestSession.score?.toFixed(1)}%
-                  </span>
-                  <p className="text-sm text-gray-600">Latest Score</p>
-                </div>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                  <Clock size={16} />
-                  {latestSession.status}
+          {latestSession && latestSession.status === 'COMPLETED' ? (
+            <div>
+              {latestSession.score !== null && latestSession.score !== undefined ? (
+                <span className={`text-3xl font-bold ${
+                  latestSession.score >= 70 ? 'text-green-600' : 
+                  latestSession.score >= 50 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {latestSession.score?.toFixed(1)}%
                 </span>
+              ) : (
+                <span className="text-2xl font-bold text-gray-400">-</span>
               )}
+              <p className="text-sm text-gray-600">Latest Score</p>
             </div>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              <Clock size={16} />
+              {latestSession?.status || 'No Session'}
+            </span>
           )}
         </div>
       </div>
@@ -157,10 +157,17 @@ export default function CandidateDetail() {
                           Completed: {new Date(session.completedAt).toLocaleString()}
                         </span>
                       )}
-                      <span className="flex items-center gap-1">
-                        <Clock size={14} />
-                        {Math.floor(session.timeRemaining / 60)} mins remaining
-                      </span>
+                      {session.status === 'COMPLETED' && session.timeTaken !== null ? (
+                        <span className="flex items-center gap-1">
+                          <Clock size={14} />
+                          {session.timeTaken} mins taken
+                        </span>
+                      ) : session.status === 'ACTIVE' ? (
+                        <span className="flex items-center gap-1">
+                          <Clock size={14} />
+                          {Math.floor(session.timeRemaining / 60)} mins remaining
+                        </span>
+                      ) : null}
                     </div>
                     <div className="mt-2 text-sm text-gray-500">
                       {session.session?.quizzes?.length || 0} quizzes

@@ -122,7 +122,29 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Candidate not found' })
     }
 
-    res.json(candidate)
+    // Calculate score for each session
+    const sessionsWithScore = candidate.sessions.map(session => {
+      const mcAnswers = session.answers.filter(a => a.question.type === 'MULTIPLE_CHOICE')
+      const correctCount = mcAnswers.filter(a => a.isCorrect).length
+      const totalMC = mcAnswers.length
+      const score = totalMC > 0 ? (correctCount / totalMC) * 100 : null
+      
+      // Calculate time taken for completed sessions
+      const timeTaken = session.completedAt 
+        ? Math.round((new Date(session.completedAt) - new Date(session.startedAt)) / 1000 / 60)
+        : null
+
+      return {
+        ...session,
+        score,
+        timeTaken
+      }
+    })
+
+    res.json({
+      ...candidate,
+      sessions: sessionsWithScore
+    })
   } catch (error) {
     console.error('Get candidate error:', error)
     res.status(500).json({ error: 'Server error' })
