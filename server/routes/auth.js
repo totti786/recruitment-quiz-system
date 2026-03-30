@@ -40,7 +40,14 @@ router.post('/login', [
       { expiresIn: '24h' }
     )
 
-    res.json({ token, username: admin.username })
+    // Check if using default password
+    const isDefaultPassword = await bcrypt.compare('admin123', admin.password)
+
+    res.json({ 
+      token, 
+      username: admin.username,
+      isDefaultPassword 
+    })
   } catch (error) {
     console.error('Login error:', error)
     res.status(500).json({ error: 'Server error' })
@@ -80,7 +87,10 @@ router.post('/change-password', authenticateToken, [
       data: { password: hashedPassword }
     })
 
-    res.json({ message: 'Password updated successfully' })
+    res.json({ 
+      message: 'Password updated successfully',
+      isDefaultPassword: false
+    })
   } catch (error) {
     console.error('Change password error:', error)
     res.status(500).json({ error: 'Server error' })

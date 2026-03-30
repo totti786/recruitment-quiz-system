@@ -1,0 +1,579 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Recruitment Quiz System API",
+    "description": "API documentation for the Recruitment Quiz System - a local-first web application for internal recruitment quiz/testing during interviews.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Internal Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Development server"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check endpoint",
+        "description": "Returns the health status of the API",
+        "tags": ["Health"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "API is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Admin login",
+        "description": "Authenticate admin user and receive JWT token",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/auth/verify": {
+      "get": {
+        "summary": "Verify JWT token",
+        "description": "Verify if the provided JWT token is valid",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": {
+            "description": "Token is valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No token provided"
+          },
+          "403": {
+            "description": "Invalid token"
+          }
+        }
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "summary": "Change admin password",
+        "description": "Change the password for the authenticated admin user",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Current password is incorrect"
+          }
+        }
+      }
+    },
+    "/candidates": {
+      "get": {
+        "summary": "Get all candidates",
+        "description": "Retrieve a list of all candidates with their department and position",
+        "tags": ["Candidates"],
+        "responses": {
+          "200": {
+            "description": "List of candidates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Candidate"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create candidate",
+        "description": "Create a new candidate",
+        "tags": ["Candidates"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCandidateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Candidate created successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/candidates/{id}": {
+      "get": {
+        "summary": "Get candidate by ID",
+        "description": "Retrieve a specific candidate by their ID",
+        "tags": ["Candidates"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidate found"
+          },
+          "404": {
+            "description": "Candidate not found"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update candidate",
+        "description": "Update a candidate's information",
+        "tags": ["Candidates"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCandidateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate updated successfully"
+          },
+          "404": {
+            "description": "Candidate not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete candidate",
+        "description": "Delete a candidate",
+        "tags": ["Candidates"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Candidate deleted successfully"
+          },
+          "404": {
+            "description": "Candidate not found"
+          }
+        }
+      }
+    },
+    "/departments": {
+      "get": {
+        "summary": "Get all departments",
+        "description": "Retrieve a list of all departments",
+        "tags": ["Departments"],
+        "responses": {
+          "200": {
+            "description": "List of departments"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create department",
+        "description": "Create a new department",
+        "tags": ["Departments"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDepartmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Department created successfully"
+          }
+        }
+      }
+    },
+    "/questions": {
+      "get": {
+        "summary": "Get all questions",
+        "description": "Retrieve a list of all questions with their choices",
+        "tags": ["Questions"],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "difficulty",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["easy", "medium", "hard"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of questions"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create question",
+        "description": "Create a new question with choices",
+        "tags": ["Questions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateQuestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Question created successfully"
+          }
+        }
+      }
+    },
+    "/dashboard/stats": {
+      "get": {
+        "summary": "Get dashboard statistics",
+        "description": "Retrieve statistics for the dashboard",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "Dashboard statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dashboard/results": {
+      "get": {
+        "summary": "Get all results",
+        "description": "Retrieve all candidate quiz results",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "List of results"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "OK"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uptime": {
+            "type": "number"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": {
+            "type": "string",
+            "example": "admin"
+          },
+          "password": {
+            "type": "string",
+            "example": "admin123"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "VerifyResponse": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "userId": {
+            "type": "integer"
+          }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "required": ["currentPassword", "newPassword"],
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 6
+          }
+        }
+      },
+      "Candidate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "department": {
+            "type": "object"
+          },
+          "position": {
+            "type": "object"
+          }
+        }
+      },
+      "CreateCandidateRequest": {
+        "type": "object",
+        "required": ["name", "email"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "integer"
+          },
+          "positionId": {
+            "type": "integer"
+          }
+        }
+      },
+      "UpdateCandidateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phoneNumber": {
+            "type": "string"
+          },
+          "departmentId": {
+            "type": "integer"
+          },
+          "positionId": {
+            "type": "integer"
+          }
+        }
+      },
+      "CreateDepartmentRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateQuestionRequest": {
+        "type": "object",
+        "required": ["questionText", "type", "category", "difficulty"],
+        "properties": {
+          "questionText": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["multiple_choice", "short_answer", "code"]
+          },
+          "category": {
+            "type": "string"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": ["easy", "medium", "hard"]
+          },
+          "codeSnippet": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "choiceText": {
+                  "type": "string"
+                },
+                "isCorrect": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DashboardStats": {
+        "type": "object",
+        "properties": {
+          "totalCandidates": {
+            "type": "integer"
+          },
+          "totalQuizzes": {
+            "type": "integer"
+          },
+          "totalQuestions": {
+            "type": "integer"
+          },
+          "totalSessions": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

@@ -7,9 +7,12 @@ import {
   AlertCircle,
   CheckCircle,
   Loader2,
-  BookOpen
+  BookOpen,
+  Info,
+  HelpCircle
 } from 'lucide-react'
 import { quizSessionsApi } from '../../utils/api.js'
+import Dialog from '../../components/Dialog.jsx'
 
 export default function QuizInterface() {
   const navigate = useNavigate()
@@ -24,6 +27,14 @@ export default function QuizInterface() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false
+  })
 
   // Load session data
   useEffect(() => {
@@ -97,7 +108,14 @@ export default function QuizInterface() {
         setTabSwitchCount(prev => {
           const newCount = prev + 1
           if (newCount >= 3) {
-            alert('You have switched tabs too many times. Your session may be flagged for review.')
+            setDialog({
+              isOpen: true,
+              title: 'Tab Switching Warning',
+              message: 'You have switched tabs too many times. Your session may be flagged for review.',
+              type: 'warning',
+              onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
+              showCancel: false
+            })
           }
           return newCount
         })
@@ -173,20 +191,27 @@ export default function QuizInterface() {
     }
   }
 
-  const handleSubmitSession = async () => {
-    if (!confirm('Are you sure you want to submit your session? You cannot change your answers after submission.')) {
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      await quizSessionsApi.submitSession(candidateSessionId)
-      sessionStorage.removeItem('candidateSession')
-      navigate('/quiz/complete')
-    } catch (err) {
-      setError(err.message || 'Failed to submit session')
-      setSubmitting(false)
-    }
+  const handleSubmitSession = () => {
+    setDialog({
+      isOpen: true,
+      title: 'Submit Session?',
+      message: 'Are you sure you want to submit your session? You cannot change your answers after submission.',
+      type: 'warning',
+      onConfirm: async () => {
+        setSubmitting(true)
+        try {
+          await quizSessionsApi.submitSession(candidateSessionId)
+          sessionStorage.removeItem('candidateSession')
+          navigate('/quiz/complete')
+        } catch (err) {
+          setError(err.message || 'Failed to submit session')
+          setSubmitting(false)
+        }
+      },
+      showCancel: true,
+      confirmText: 'Submit',
+      cancelText: 'Continue Quiz'
+    })
   }
 
   const handleTimeExpired = async () => {
@@ -229,7 +254,7 @@ export default function QuizInterface() {
   const answeredCount = Object.keys(answers).length
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 select-none">
       {/* Header */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4">
@@ -274,6 +299,20 @@ export default function QuizInterface() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {/* Quiz Separator */}
+        {totalQuizzes > 1 && (
+          <div className="mb-6 flex items-center gap-4">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 shadow-sm">
+              <BookOpen size={18} className="text-primary-600" />
+              <span className="text-sm font-medium text-gray-700">
+                Quiz {currentQuizIndex + 1} of {totalQuizzes}
+              </span>
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+          </div>
+        )}
+
         <div className="card">
           {/* Question */}
           <div className="mb-8">
@@ -396,6 +435,21 @@ export default function QuizInterface() {
           </div>
         </div>
 
+        {/* Scoring Information */}
+        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <HelpCircle size={18} className="text-gray-500 flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-gray-600">
+              <p className="font-medium text-gray-700 mb-1">How Your Answers Are Graded:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li><strong>Multiple Choice:</strong> Automatically graded - you'll see results immediately after submission</li>
+                <li><strong>Written Answers & Code:</strong> Saved for manual review by the hiring team - these don't affect your automatic score</li>
+                <li>Your final score is calculated from multiple choice questions only</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {error && (
           <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
             <AlertCircle size={18} />
@@ -409,6 +463,19 @@ export default function QuizInterface() {
             Excessive tab switching may flag your session for review.
           </div>
         )}
+
+        {/* Custom Dialog */}
+        <Dialog
+          isOpen={dialog.isOpen}
+          onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+          title={dialog.title}
+          message={dialog.message}
+          type={dialog.type}
+          onConfirm={dialog.onConfirm}
+          showCancel={dialog.showCancel}
+          confirmText={dialog.confirmText}
+          cancelText={dialog.cancelText}
+        />
       </main>
     </div>
   )

@@ -196,3 +196,17 @@ export const dashboardApi = {
   getResultDetails: (sessionId) => fetchWithAuth(`/dashboard/results/${sessionId}`),
   export: () => fetchWithAuth('/dashboard/export')
 }
+
+// Grading API
+export const gradingApi = {
+  getPending: () => fetchWithAuth('/grading/pending'),
+  getSession: (candidateSessionId) => fetchWithAuth(`/grading/session/${candidateSessionId}`),
+  gradeAnswer: (answerId, data) => fetchWithAuth(`/grading/answer/${answerId}`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  batchGrade: (candidateSessionId, grades) => fetchWithAuth(`/grading/session/${candidateSessionId}/batch`, {
+    method: 'POST',
+    body: JSON.stringify({ grades })
+  })
+}

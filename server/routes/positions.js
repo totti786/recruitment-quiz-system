@@ -60,6 +60,21 @@ router.post('/', authenticateToken, [
   const { name, departmentId } = req.body
 
   try {
+    // Check for duplicate position name in the same department
+    const existing = await prisma.position.findFirst({
+      where: {
+        name: { equals: name, mode: 'insensitive' },
+        departmentId: parseInt(departmentId)
+      }
+    })
+
+    if (existing) {
+      return res.status(400).json({
+        error: 'Position already exists',
+        message: `A position named "${name}" already exists in this department.`
+      })
+    }
+
     const position = await prisma.position.create({
       data: {
         name,

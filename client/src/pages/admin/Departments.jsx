@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Search, Trash2, Edit2, Loader2, Users } from 'lucide-react'
 import { departmentsApi } from '../../utils/api.js'
 import DepartmentModal from '../../components/modals/DepartmentModal.jsx'
+import Dialog from '../../components/Dialog.jsx'
 
 export default function Departments() {
   const [departments, setDepartments] = useState([])
@@ -9,6 +10,14 @@ export default function Departments() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [selectedDepartment, setSelectedDepartment] = useState(null)
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false
+  })
 
   useEffect(() => {
     loadDepartments()
@@ -25,15 +34,31 @@ export default function Departments() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this department? All associated positions and candidates will be affected.')) return
-    
-    try {
-      await departmentsApi.delete(id)
-      setDepartments(departments.filter(d => d.id !== id))
-    } catch (err) {
-      alert('Failed to delete department')
-    }
+  const handleDelete = (id) => {
+    setDialog({
+      isOpen: true,
+      title: 'Delete Department?',
+      message: 'Are you sure you want to delete this department? All associated positions and candidates will be affected.',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await departmentsApi.delete(id)
+          setDepartments(departments.filter(d => d.id !== id))
+        } catch (err) {
+          setDialog({
+            isOpen: true,
+            title: 'Error',
+            message: err.message || 'Failed to delete department',
+            type: 'error',
+            onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
+            showCancel: false
+          })
+        }
+      },
+      showCancel: true,
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    })
   }
 
   const handleEdit = (department) => {
@@ -165,6 +190,19 @@ export default function Departments() {
           }}
         />
       )}
+
+      {/* Custom Dialog */}
+      <Dialog
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onConfirm={dialog.onConfirm}
+        showCancel={dialog.showCancel}
+        confirmText={dialog.confirmText}
+        cancelText={dialog.cancelText}
+      />
     </div>
   )
 }

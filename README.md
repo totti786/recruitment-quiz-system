@@ -257,6 +257,41 @@ The system comes pre-loaded with sample questions across various categories:
 - **Database**: SQL basics, joins
 - **System Design**: Scaling, CAP theorem
 
+## Testing
+
+The project includes comprehensive testing suites for both frontend and backend:
+
+### Test Coverage
+
+- **Backend**: Jest + Supertest for API endpoint testing
+- **Frontend**: Vitest + React Testing Library for component testing
+- **CI/CD**: GitHub Actions workflow for automated testing
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run server tests only
+npm run test:server
+
+# Run client tests only
+npm run test:client
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+### API Documentation
+
+Interactive API documentation is available at:
+```
+http://localhost:3001/api-docs
+```
+
+See [TESTS.md](TESTS.md) for detailed testing documentation.
+
 ## Usage Guide
 
 ### For Interview Managers

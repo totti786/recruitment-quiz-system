@@ -8,6 +8,10 @@
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
     "setup": "npm run install:all && cd server && npx prisma migrate dev && npx prisma db seed",
+    "test": "npm run test:server && npm run test:client",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test",
+    "test:watch": "concurrently \"cd server && npm run test:watch\" \"cd client && npm run test:watch\"",
     "docker:dev": "docker-compose up --build",
     "docker:dev:detach": "docker-compose up -d --build",
     "docker:prod": "docker-compose -f docker-compose.prod.yml up --build -d",
@@ -15,7 +19,10 @@
     "docker:logs": "docker-compose logs -f",
     "docker:db:migrate": "docker-compose exec server npx prisma migrate dev",
     "docker:db:seed": "docker-compose exec server npx prisma db seed",
-    "docker:db:reset": "docker-compose exec server npx prisma migrate reset --force"
+    "docker:db:reset": "docker-compose exec server npx prisma migrate reset --force",
+    "docker:test": "docker-compose exec server npm test",
+    "lint": "cd client && npm run lint 2>/dev/null || echo 'No lint script'",
+    "format": "cd client && npm run format 2>/dev/null || echo 'No format script'"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

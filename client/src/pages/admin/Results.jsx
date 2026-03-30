@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, ExternalLink, Download, Loader2, CheckCircle, XCircle, Clock, User, FileText, Building2, Briefcase } from 'lucide-react'
+import { Search, ExternalLink, Download, Loader2, CheckCircle, XCircle, Clock, User, FileText, Building2, Briefcase, Info, ClipboardCheck } from 'lucide-react'
 import { dashboardApi } from '../../utils/api.js'
 
 const SkeletonRow = () => (
@@ -74,6 +74,25 @@ export default function Results() {
           <Download size={20} />
           Export CSV
         </button>
+      </div>
+
+      {/* Grading Information */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <div className="flex items-start gap-3">
+          <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-1">Understanding the Scoring System</p>
+            <p className="mb-2">
+              Scores shown below are calculated from <strong>multiple choice questions only</strong>. 
+              Written answers and code submissions are not automatically graded and require manual review.
+            </p>
+            <ul className="space-y-1 list-disc list-inside text-xs">
+              <li><strong>Multiple Choice:</strong> Automatically graded - shown in score column</li>
+              <li><strong>Written Answers:</strong> Saved for manual review - click "View Details" to see responses</li>
+              <li><strong>Code Questions:</strong> Saved for manual review - shown in detailed results</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       {/* Search */}
@@ -171,7 +190,17 @@ export default function Results() {
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    {result.score !== null && result.score !== undefined ? (
+                    {result.scoreStatus === 'pending' ? (
+                      <div>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 mb-1">
+                          <Clock size={12} />
+                          Pending Grading
+                        </span>
+                        <p className="text-xs text-surface-400">
+                          {result.writtenPending} of {result.totalWritten} written
+                        </p>
+                      </div>
+                    ) : result.score !== null && result.score !== undefined ? (
                       <span className={`font-bold text-lg ${
                         result.score >= 70 ? 'text-emerald-600' : 
                         result.score >= 50 ? 'text-amber-600' : 'text-red-600'
@@ -187,6 +216,15 @@ export default function Results() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-1.5">
+                      {result.scoreStatus === 'pending' && (
+                        <button
+                          onClick={() => navigate(`/admin/results/${result.id}`)}
+                          className="p-2.5 text-surface-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                          title="Grade Answers"
+                        >
+                          <ClipboardCheck size={18} />
+                        </button>
+                      )}
                       <button
                         onClick={() => navigate(`/admin/results/${result.id}`)}
                         disabled={result.status !== 'COMPLETED'}

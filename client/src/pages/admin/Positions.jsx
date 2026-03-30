@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Search, Trash2, Edit2, Loader2, Users } from 'lucide-react'
 import { positionsApi, departmentsApi } from '../../utils/api.js'
 import PositionModal from '../../components/modals/PositionModal.jsx'
+import Dialog from '../../components/Dialog.jsx'
 
 export default function Positions() {
   const [positions, setPositions] = useState([])
@@ -10,6 +11,14 @@ export default function Positions() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [selectedPosition, setSelectedPosition] = useState(null)
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false
+  })
 
   useEffect(() => {
     loadPositions()
@@ -36,15 +45,31 @@ export default function Positions() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this position?')) return
-    
-    try {
-      await positionsApi.delete(id)
-      setPositions(positions.filter(p => p.id !== id))
-    } catch (err) {
-      alert('Failed to delete position')
-    }
+  const handleDelete = (id) => {
+    setDialog({
+      isOpen: true,
+      title: 'Delete Position?',
+      message: 'Are you sure you want to delete this position?',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await positionsApi.delete(id)
+          setPositions(positions.filter(p => p.id !== id))
+        } catch (err) {
+          setDialog({
+            isOpen: true,
+            title: 'Error',
+            message: err.message || 'Failed to delete position',
+            type: 'error',
+            onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
+            showCancel: false
+          })
+        }
+      },
+      showCancel: true,
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    })
   }
 
   const handleEdit = (position) => {
@@ -164,6 +189,19 @@ export default function Positions() {
           }}
         />
       )}
+
+      {/* Custom Dialog */}
+      <Dialog
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onConfirm={dialog.onConfirm}
+        showCancel={dialog.showCancel}
+        confirmText={dialog.confirmText}
+        cancelText={dialog.cancelText}
+      />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Search, Trash2, Edit2, Loader2 } from 'lucide-react'
 import { quizzesApi } from '../../utils/api.js'
 import QuizModal from '../../components/modals/QuizModal.jsx'
+import Dialog from '../../components/Dialog.jsx'
 
 export default function Quizzes() {
   const [quizzes, setQuizzes] = useState([])
@@ -9,6 +10,14 @@ export default function Quizzes() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [selectedQuiz, setSelectedQuiz] = useState(null)
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false
+  })
 
   useEffect(() => {
     loadQuizzes()
@@ -25,15 +34,31 @@ export default function Quizzes() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this quiz?')) return
-    
-    try {
-      await quizzesApi.delete(id)
-      setQuizzes(quizzes.filter(q => q.id !== id))
-    } catch (err) {
-      alert('Failed to delete quiz')
-    }
+  const handleDelete = (id) => {
+    setDialog({
+      isOpen: true,
+      title: 'Delete Quiz?',
+      message: 'Are you sure you want to delete this quiz?',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await quizzesApi.delete(id)
+          setQuizzes(quizzes.filter(q => q.id !== id))
+        } catch (err) {
+          setDialog({
+            isOpen: true,
+            title: 'Error',
+            message: err.message || 'Failed to delete quiz',
+            type: 'error',
+            onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
+            showCancel: false
+          })
+        }
+      },
+      showCancel: true,
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    })
   }
 
   const handleEdit = (quiz) => {
@@ -156,6 +181,19 @@ export default function Quizzes() {
           }}
         />
       )}
+
+      {/* Custom Dialog */}
+      <Dialog
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onConfirm={dialog.onConfirm}
+        showCancel={dialog.showCancel}
+        confirmText={dialog.confirmText}
+        cancelText={dialog.cancelText}
+      />
     </div>
   )
 }

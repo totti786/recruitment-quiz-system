@@ -9,11 +9,12 @@ datasource db {
 }
 
 model Admin {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  username         String   @unique
+  password         String
+  isDefaultPassword Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Department {
@@ -97,6 +98,9 @@ model CandidateSession {
   completedAt     DateTime?
   status          String       @default("ACTIVE")
   timeRemaining   Int          // in seconds
+  isFullyGraded   Boolean      @default(false)  // Whether all answers have been graded
+  gradedAt        DateTime?    // When the session was fully graded
+  gradedBy        String?      // Who completed the grading
   candidate       Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   session         Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   answers         Answer[]
@@ -134,6 +138,12 @@ model Answer {
   selectedChoiceId Int?
   textAnswer       String?
   isCorrect        Boolean?
+  score            Float?           // Manual score for written/code questions (0-100)
+  maxScore         Int?             // Maximum possible score for this question
+  isGraded         Boolean          @default(false)  // Whether this answer has been graded
+  gradingNotes     String?          // Feedback/notes from grader
+  gradedAt         DateTime?        // When the answer was graded
+  gradedBy         String?          // Who graded the answer
   answeredAt       DateTime         @default(now())
   candidateSession CandidateSession @relation(fields: [candidateSessionId], references: [id], onDelete: Cascade)
   selectedChoice   Choice?          @relation(fields: [selectedChoiceId], references: [id])

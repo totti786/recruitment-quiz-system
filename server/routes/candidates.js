@@ -155,10 +155,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, [
   body('name').notEmpty().trim(),
   body('phoneNumber').notEmpty().trim(),
-  body('email').optional().isEmail(),
+  body('email').optional({ checkFalsy: true }).isEmail(),
   body('departmentId').isInt(),
   body('positionId').isInt(),
-  body('notes').optional().trim()
+  body('notes').optional({ checkFalsy: true }).trim()
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -194,7 +194,7 @@ router.post('/', authenticateToken, [
 router.put('/:id', authenticateToken, [
   body('name').optional().trim(),
   body('phoneNumber').optional().trim(),
-  body('email').optional().isEmail(),
+  body('email').optional({ checkFalsy: true }).isEmail(),
   body('departmentId').optional().isInt(),
   body('positionId').optional().isInt(),
   body('notes').optional().trim()

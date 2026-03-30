@@ -18,6 +18,7 @@ import Questions from './pages/admin/Questions.jsx'
 import Results from './pages/admin/Results.jsx'
 import ResultDetail from './pages/admin/ResultDetail.jsx'
 import Login from './pages/admin/Login.jsx'
+import Account from './pages/admin/Account.jsx'
 
 // Quiz Pages
 import QuizAccess from './pages/quiz/QuizAccess.jsx'
@@ -57,6 +58,7 @@ function App() {
           <Route path="questions" element={<Questions />} />
           <Route path="results" element={<Results />} />
           <Route path="results/:sessionId" element={<ResultDetail />} />
+          <Route path="account" element={<Account />} />
         </Route>
 
         {/* Quiz Routes */}

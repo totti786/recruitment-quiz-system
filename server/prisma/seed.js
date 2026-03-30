@@ -152,19 +152,6 @@ async function main() {
     },
     // Programming questions
     {
-      questionText: 'What will be the output of this JavaScript code?\n\nconsole.log(typeof [])',
-      type: 'MULTIPLE_CHOICE',
-      category: 'Programming',
-      difficulty: 'EASY',
-      codeSnippet: 'console.log(typeof [])',
-      choices: [
-        { choiceText: '"object"', isCorrect: true },
-        { choiceText: '"array"', isCorrect: false },
-        { choiceText: '"undefined"', isCorrect: false },
-        { choiceText: '"list"', isCorrect: false },
-      ],
-    },
-    {
       questionText: 'What is the time complexity of binary search?',
       type: 'MULTIPLE_CHOICE',
       category: 'Programming',

@@ -170,10 +170,19 @@ router.get('/session/:candidateSessionId/quiz/:quizIndex', async (req, res) => {
     const shuffled = questions.sort(() => 0.5 - Math.random())
     const selectedQuestions = shuffled.slice(0, sessionQuiz.quiz.questionCount)
 
-    // Get existing answers for this candidate session
+    // Get existing answers for this candidate session (without isCorrect)
     const answers = await prisma.answer.findMany({
       where: {
         candidateSessionId
+      },
+      select: {
+        id: true,
+        candidateSessionId: true,
+        questionId: true,
+        quizIndex: true,
+        selectedChoiceId: true,
+        textAnswer: true,
+        answeredAt: true
       }
     })
 
@@ -251,7 +260,9 @@ router.post('/answer', [
       })
     }
 
-    res.json(answer)
+    // Return answer without isCorrect to prevent quiz taker from seeing correct answers
+    const { isCorrect: _, ...answerWithoutCorrectness } = answer
+    res.json(answerWithoutCorrectness)
   } catch (error) {
     console.error('Submit answer error:', error)
     res.status(500).json({ error: 'Server error' })

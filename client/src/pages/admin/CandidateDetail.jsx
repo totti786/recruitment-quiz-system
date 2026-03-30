@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Briefcase, Calendar, ClipboardList, CheckCircle, Clock, Phone, Building2 } from 'lucide-react'
+import { ArrowLeft, Mail, Briefcase, Calendar, ClipboardList, CheckCircle, Clock, Phone, Building2, Pencil } from 'lucide-react'
 import { candidatesApi } from '../../utils/api.js'
+import CandidateModal from '../../components/modals/CandidateModal.jsx'
 
 export default function CandidateDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [candidate, setCandidate] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   useEffect(() => {
     loadCandidate()
@@ -89,8 +91,17 @@ export default function CandidateDetail() {
               </span>
             </div>
           </div>
-          
-          {latestSession && latestSession.status === 'COMPLETED' ? (
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-2 px-4 py-2 text-primary-600 hover:bg-primary-50 rounded-xl transition-all border border-primary-200"
+            >
+              <Pencil size={18} />
+              Edit
+            </button>
+
+            {latestSession && latestSession.status === 'COMPLETED' ? (
             <div>
               {latestSession.score !== null && latestSession.score !== undefined ? (
                 <span className={`text-3xl font-bold ${
@@ -110,6 +121,7 @@ export default function CandidateDetail() {
               {latestSession?.status || 'No Session'}
             </span>
           )}
+          </div>
         </div>
       </div>
 
@@ -203,6 +215,18 @@ export default function CandidateDetail() {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && candidate && (
+        <CandidateModal
+          candidate={candidate}
+          onClose={() => setShowEditModal(false)}
+          onSuccess={() => {
+            setShowEditModal(false)
+            loadCandidate()
+          }}
+        />
+      )}
     </div>
   )
 }

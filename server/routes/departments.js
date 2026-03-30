@@ -63,6 +63,18 @@ router.post('/', authenticateToken, [
   const { name } = req.body
 
   try {
+    // Check for duplicate department name
+    const existing = await prisma.department.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } }
+    })
+    
+    if (existing) {
+      return res.status(400).json({
+        error: 'Department already exists',
+        message: `A department named "${name}" already exists.`
+      })
+    }
+    
     const department = await prisma.department.create({
       data: { name }
     })
@@ -99,8 +111,28 @@ router.put('/:id', authenticateToken, [
 // Delete department
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
+    const departmentId = parseInt(req.params.id)
+    
+    // Check if department has candidates
+    const candidatesCount = await prisma.candidate.count({
+      where: { departmentId }
+    })
+    
+    if (candidatesCount > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot delete department',
+        message: `This department has ${candidatesCount} candidate(s). Please reassign or delete the candidates first.`
+      })
+    }
+    
+    // Delete all positions in this department first
+    await prisma.position.deleteMany({
+      where: { departmentId }
+    })
+    
+    // Now delete the department
     await prisma.department.delete({
-      where: { id: parseInt(req.params.id) }
+      where: { id: departmentId }
     })
 
     res.json({ message: 'Department deleted successfully' })

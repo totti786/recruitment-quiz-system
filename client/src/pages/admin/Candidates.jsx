@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Trash2, ExternalLink, Loader2, Layers, Building2, Phone, User, Users } from 'lucide-react'
+import { Plus, Search, Trash2, ExternalLink, Loader2, Layers, Building2, Phone, User, Users, Pencil } from 'lucide-react'
 import { candidatesApi } from '../../utils/api.js'
 import { sessionsApi } from '../../utils/api.js'
 import CandidateModal from '../../components/modals/CandidateModal.jsx'
 import AssignSessionModal from '../../components/modals/AssignSessionModal.jsx'
+import Dialog from '../../components/Dialog.jsx'
 
 const SkeletonRow = () => (
   <tr className="animate-pulse">
@@ -24,8 +25,17 @@ export default function Candidates() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [selectedCandidate, setSelectedCandidate] = useState(null)
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false
+  })
 
   useEffect(() => {
     loadCandidates()
@@ -52,15 +62,36 @@ export default function Candidates() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this candidate?')) return
-    
-    try {
-      await candidatesApi.delete(id)
-      setCandidates(candidates.filter(c => c.id !== id))
-    } catch (err) {
-      alert('Failed to delete candidate')
-    }
+  const handleDelete = (id) => {
+    setDialog({
+      isOpen: true,
+      title: 'Delete Candidate?',
+      message: 'Are you sure you want to delete this candidate?',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await candidatesApi.delete(id)
+          setCandidates(candidates.filter(c => c.id !== id))
+        } catch (err) {
+          setDialog({
+            isOpen: true,
+            title: 'Error',
+            message: err.message || 'Failed to delete candidate',
+            type: 'error',
+            onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
+            showCancel: false
+          })
+        }
+      },
+      showCancel: true,
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    })
+  }
+
+  const handleEdit = (candidate) => {
+    setSelectedCandidate(candidate)
+    setShowEditModal(true)
   }
 
   const handleAssignSession = (candidate) => {
@@ -225,6 +256,13 @@ export default function Candidates() {
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-1.5">
                       <button
+                        onClick={() => handleEdit(candidate)}
+                        className="p-2.5 text-surface-500 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-all"
+                        title="Edit Candidate"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button
                         onClick={() => handleAssignSession(candidate)}
                         className="p-2.5 text-surface-500 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-all"
                         title="Assign Session"
@@ -265,6 +303,21 @@ export default function Candidates() {
         />
       )}
 
+      {showEditModal && selectedCandidate && (
+        <CandidateModal
+          candidate={selectedCandidate}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedCandidate(null)
+          }}
+          onSuccess={() => {
+            setShowEditModal(false)
+            setSelectedCandidate(null)
+            loadCandidates()
+          }}
+        />
+      )}
+
       {showAssignModal && selectedCandidate && (
         <AssignSessionModal
           candidate={selectedCandidate}
@@ -273,6 +326,19 @@ export default function Candidates() {
           onSuccess={handleSessionAssigned}
         />
       )}
+
+      {/* Custom Dialog */}
+      <Dialog
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onConfirm={dialog.onConfirm}
+        showCancel={dialog.showCancel}
+        confirmText={dialog.confirmText}
+        cancelText={dialog.cancelText}
+      />
     </div>
   )
 }

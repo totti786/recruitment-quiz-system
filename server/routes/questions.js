@@ -160,4 +160,68 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 })
 
+// Import questions from CSV
+router.post('/import', authenticateToken, async (req, res) => {
+  try {
+    const { questions } = req.body
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ error: 'No questions provided' })
+    }
+
+    const results = {
+      imported: 0,
+      failed: 0,
+      errors: []
+    }
+
+    for (const q of questions) {
+      try {
+        // Validate required fields
+        if (!q.questionText || !q.type || !q.category || !q.difficulty) {
+          results.failed++
+          results.errors.push(`Missing required fields for question: ${q.questionText?.substring(0, 50)}...`)
+          continue
+        }
+
+        // Create question with choices if applicable
+        const questionData = {
+          questionText: q.questionText,
+          type: q.type,
+          category: q.category,
+          difficulty: q.difficulty,
+          codeSnippet: q.codeSnippet || null,
+          explanation: q.explanation || null
+        }
+
+        if (q.type === 'MULTIPLE_CHOICE' && q.choices && q.choices.length > 0) {
+          questionData.choices = {
+            create: q.choices.map(choice => ({
+              choiceText: choice.choiceText,
+              isCorrect: choice.isCorrect || false
+            }))
+          }
+        }
+
+        await prisma.question.create({
+          data: questionData
+        })
+
+        results.imported++
+      } catch (err) {
+        results.failed++
+        results.errors.push(`Failed to import: ${q.questionText?.substring(0, 50)}... - ${err.message}`)
+      }
+    }
+
+    res.json({
+      message: `Import complete: ${results.imported} imported, ${results.failed} failed`,
+      results
+    })
+  } catch (error) {
+    console.error('Import questions error:', error)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 export default router

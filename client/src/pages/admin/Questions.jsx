@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, Trash2, Edit2, Loader2, Filter } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, Loader2, Filter, Upload } from 'lucide-react'
 import { questionsApi } from '../../utils/api.js'
 import QuestionModal from '../../components/modals/QuestionModal.jsx'
+import ImportQuestionsModal from '../../components/modals/ImportQuestionsModal.jsx'
+import Dialog from '../../components/Dialog.jsx'
 
 export default function Questions() {
   const [questions, setQuestions] = useState([])
@@ -14,7 +16,16 @@ export default function Questions() {
     type: ''
   })
   const [showModal, setShowModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [selectedQuestion, setSelectedQuestion] = useState(null)
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false
+  })
 
   useEffect(() => {
     loadQuestions()
@@ -41,15 +52,31 @@ export default function Questions() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this question?')) return
-    
-    try {
-      await questionsApi.delete(id)
-      setQuestions(questions.filter(q => q.id !== id))
-    } catch (err) {
-      alert('Failed to delete question')
-    }
+  const handleDelete = (id) => {
+    setDialog({
+      isOpen: true,
+      title: 'Delete Question?',
+      message: 'Are you sure you want to delete this question?',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await questionsApi.delete(id)
+          setQuestions(questions.filter(q => q.id !== id))
+        } catch (err) {
+          setDialog({
+            isOpen: true,
+            title: 'Error',
+            message: err.message || 'Failed to delete question',
+            type: 'error',
+            onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
+            showCancel: false
+          })
+        }
+      },
+      showCancel: true,
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    })
   }
 
   const handleEdit = (question) => {
@@ -92,13 +119,22 @@ export default function Questions() {
           <h1 className="text-2xl font-bold text-gray-900">Questions</h1>
           <p className="text-gray-600 mt-1">Manage your question bank</p>
         </div>
-        <button 
-          onClick={handleAdd}
-          className="btn-primary flex items-center justify-center gap-2"
-        >
-          <Plus size={20} />
-          Add Question
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setShowImportModal(true)}
+            className="btn-secondary flex items-center justify-center gap-2"
+          >
+            <Upload size={20} />
+            Import CSV
+          </button>
+          <button 
+            onClick={handleAdd}
+            className="btn-primary flex items-center justify-center gap-2"
+          >
+            <Plus size={20} />
+            Add Question
+          </button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -257,6 +293,30 @@ export default function Questions() {
           }}
         />
       )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <ImportQuestionsModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => {
+            setShowImportModal(false)
+            loadQuestions()
+          }}
+        />
+      )}
+
+      {/* Custom Dialog */}
+      <Dialog
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onConfirm={dialog.onConfirm}
+        showCancel={dialog.showCancel}
+        confirmText={dialog.confirmText}
+        cancelText={dialog.cancelText}
+      />
     </div>
   )
 }

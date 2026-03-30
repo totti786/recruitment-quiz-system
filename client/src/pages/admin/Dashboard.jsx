@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Users, HelpCircle, BookOpen, Layers, TrendingUp, Clock, Activity, Target } from 'lucide-react'
+import { Users, HelpCircle, BookOpen, Layers, TrendingUp, Clock, Activity, Target, ClipboardCheck } from 'lucide-react'
 import { dashboardApi } from '../../utils/api.js'
 import { Link } from 'react-router-dom'
 
@@ -130,7 +130,7 @@ export default function Dashboard() {
       </div>
 
       {/* Session Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 p-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
@@ -139,6 +139,17 @@ export default function Dashboard() {
             <div>
               <p className="text-sm font-medium text-surface-500">Completed Sessions</p>
               <p className="text-3xl font-bold text-surface-900">{stats.completedSessions}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+              <ClipboardCheck className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-surface-500">Pending Grading</p>
+              <p className="text-3xl font-bold text-surface-900">{stats.pendingGrading || 0}</p>
             </div>
           </div>
         </div>

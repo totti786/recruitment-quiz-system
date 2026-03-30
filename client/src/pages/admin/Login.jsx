@@ -7,6 +7,7 @@ import { useAuthStore } from '../../hooks/useAuthStore.js'
 export default function Login() {
   const navigate = useNavigate()
   const login = useAuthStore(state => state.login)
+  const isDefaultPassword = useAuthStore(state => state.isDefaultPassword)
   const [credentials, setCredentials] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +19,10 @@ export default function Login() {
 
     try {
       const response = await authApi.login(credentials.username, credentials.password)
-      login(response.token, { username: response.username })
+      login(response.token, { 
+        username: response.username,
+        isDefaultPassword: response.isDefaultPassword 
+      })
       navigate('/admin')
     } catch (err) {
       setError(err.message || 'Invalid credentials')
@@ -98,12 +102,14 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-surface-100">
-            <div className="flex items-center justify-center gap-2 text-sm text-surface-500">
-              <span>Demo credentials:</span>
-              <code className="px-2 py-1 bg-surface-100 rounded-md font-mono text-surface-700">admin / admin123</code>
+          {isDefaultPassword && (
+            <div className="mt-8 pt-6 border-t border-surface-100">
+              <div className="flex items-center justify-center gap-2 text-sm text-surface-500">
+                <span>Demo credentials:</span>
+                <code className="px-2 py-1 bg-surface-100 rounded-md font-mono text-surface-700">admin / admin123</code>
+              </div>
             </div>
-          </div>
+          )}
         </div>
         
         <p className="text-center mt-6 text-sm text-surface-400">

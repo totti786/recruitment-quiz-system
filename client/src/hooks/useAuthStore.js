@@ -7,15 +7,21 @@ export const useAuthStore = create(
       token: null,
       user: null,
       isAuthenticated: false,
+      isDefaultPassword: false,
       
       login: (token, user) => {
         localStorage.setItem('token', token)
-        set({ token, user, isAuthenticated: true })
+        set({ 
+          token, 
+          user, 
+          isAuthenticated: true,
+          isDefaultPassword: user?.isDefaultPassword || false
+        })
       },
       
       logout: () => {
         localStorage.removeItem('token')
-        set({ token: null, user: null, isAuthenticated: false })
+        set({ token: null, user: null, isAuthenticated: false, isDefaultPassword: false })
       },
       
       checkAuth: () => {
@@ -23,6 +29,10 @@ export const useAuthStore = create(
         if (token) {
           set({ token, isAuthenticated: true })
         }
+      },
+
+      markPasswordChanged: () => {
+        set({ isDefaultPassword: false })
       }
     }),
     {

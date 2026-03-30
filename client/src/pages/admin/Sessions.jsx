@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Search, Trash2, Edit2, Clock, BookOpen, Loader2 } from 'lucide-react'
 import { sessionsApi, quizzesApi } from '../../utils/api.js'
 import SessionModal from '../../components/modals/SessionModal.jsx'
+import Dialog from '../../components/Dialog.jsx'
 
 export default function Sessions() {
   const [sessions, setSessions] = useState([])
@@ -10,6 +11,14 @@ export default function Sessions() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [selectedSession, setSelectedSession] = useState(null)
+  const [dialog, setDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false
+  })
 
   useEffect(() => {
     loadSessions()
@@ -36,15 +45,31 @@ export default function Sessions() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this session?')) return
-    
-    try {
-      await sessionsApi.delete(id)
-      setSessions(sessions.filter(s => s.id !== id))
-    } catch (err) {
-      alert('Failed to delete session')
-    }
+  const handleDelete = (id) => {
+    setDialog({
+      isOpen: true,
+      title: 'Delete Session?',
+      message: 'Are you sure you want to delete this session?',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          await sessionsApi.delete(id)
+          setSessions(sessions.filter(s => s.id !== id))
+        } catch (err) {
+          setDialog({
+            isOpen: true,
+            title: 'Error',
+            message: err.message || 'Failed to delete session',
+            type: 'error',
+            onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
+            showCancel: false
+          })
+        }
+      },
+      showCancel: true,
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    })
   }
 
   const handleEdit = (session) => {
@@ -184,6 +209,19 @@ export default function Sessions() {
           }}
         />
       )}
+
+      {/* Custom Dialog */}
+      <Dialog
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onConfirm={dialog.onConfirm}
+        showCancel={dialog.showCancel}
+        confirmText={dialog.confirmText}
+        cancelText={dialog.cancelText}
+      />
     </div>
   )
 }
