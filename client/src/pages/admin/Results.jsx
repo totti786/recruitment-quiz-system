@@ -38,17 +38,13 @@ export default function Results() {
 
   const handleExport = async () => {
     try {
-      const response = await fetch('/api/dashboard/export', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-      const blob = await response.blob()
+      const blob = await dashboardApi.exportResults()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = 'quiz-results.csv'
       a.click()
+      window.URL.revokeObjectURL(url)
     } catch (err) {
       alert('Failed to export results')
     }

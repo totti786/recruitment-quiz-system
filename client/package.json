@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run --coverage",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test": "HOST=127.0.0.1 vitest run --coverage",
+    "test:watch": "HOST=127.0.0.1 vitest",
+    "test:ui": "HOST=127.0.0.1 vitest --ui"
   },
   "dependencies": {
     "lucide-react": "^0.294.0",

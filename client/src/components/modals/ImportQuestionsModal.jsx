@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { X, Upload, Download, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import Papa from 'papaparse'
+import { questionsApi } from '../../utils/api.js'
 
 export default function ImportQuestionsModal({ onClose, onSuccess }) {
   const [file, setFile] = useState(null)
@@ -94,7 +95,6 @@ export default function ImportQuestionsModal({ onClose, onSuccess }) {
             category: row.category.trim(),
             difficulty: row.difficulty.trim().toUpperCase(),
             codeSnippet: row.codeSnippet?.trim() || null,
-            explanation: row.explanation?.trim() || null,
             choices: row.type.trim().toUpperCase() === 'MULTIPLE_CHOICE' 
               ? [
                   row.choice1?.trim(),
@@ -108,19 +108,7 @@ export default function ImportQuestionsModal({ onClose, onSuccess }) {
               : []
           }))
 
-          // Send to API
-          const response = await fetch('/api/questions/import', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ questions })
-          })
-
-          if (!response.ok) {
-            throw new Error('Import failed')
-          }
+          await questionsApi.importCsv(questions)
 
           setImported(true)
           setTimeout(() => {

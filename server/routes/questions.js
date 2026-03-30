@@ -2,7 +2,7 @@ import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { getValidationErrorMessage } from '../lib/http.js'
 
 const router = express.Router()
 
@@ -73,12 +73,25 @@ router.post('/', authenticateToken, [
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { questionText, type, category, difficulty, codeSnippet, choices } = req.body
 
   try {
+    if (type === 'MULTIPLE_CHOICE') {
+      if (!Array.isArray(choices) || choices.length < 2) {
+        return res.status(400).json({ error: 'Multiple choice questions require at least two choices' })
+      }
+
+      if (!choices.some(choice => Boolean(choice.isCorrect))) {
+        return res.status(400).json({ error: 'Multiple choice questions require at least one correct choice' })
+      }
+    }
+
     const question = await prisma.question.create({
       data: {
         questionText,
@@ -105,6 +118,16 @@ router.put('/:id', authenticateToken, async (req, res) => {
   const { questionText, type, category, difficulty, codeSnippet, choices } = req.body
 
   try {
+    if (type === 'MULTIPLE_CHOICE') {
+      if (!Array.isArray(choices) || choices.length < 2) {
+        return res.status(400).json({ error: 'Multiple choice questions require at least two choices' })
+      }
+
+      if (!choices.some(choice => Boolean(choice.isCorrect))) {
+        return res.status(400).json({ error: 'Multiple choice questions require at least one correct choice' })
+      }
+    }
+
     // Update question
     const question = await prisma.question.update({
       where: { id: parseInt(req.params.id) },
@@ -190,8 +213,7 @@ router.post('/import', authenticateToken, async (req, res) => {
           type: q.type,
           category: q.category,
           difficulty: q.difficulty,
-          codeSnippet: q.codeSnippet || null,
-          explanation: q.explanation || null
+          codeSnippet: q.codeSnippet || null
         }
 
         if (q.type === 'MULTIPLE_CHOICE' && q.choices && q.choices.length > 0) {

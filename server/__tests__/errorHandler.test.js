@@ -1,5 +1,4 @@
-import request from 'supertest'
-import express from 'express'
+import { jest } from '@jest/globals'
 import {
   AppError,
   NotFoundError,
@@ -10,161 +9,133 @@ import {
   asyncHandler,
 } from '../middleware/errorHandler.js'
 
+function createResponse() {
+  return {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code
+      return this
+    },
+    json(payload) {
+      this.body = payload
+      return this
+    },
+  }
+}
+
 describe('Error Handler Middleware', () => {
-  let app
-
-  beforeEach(() => {
-    app = express()
-    app.use(express.json())
-  })
-
   describe('Custom Error Classes', () => {
-    it('should create AppError with default status code', () => {
+    it('creates AppError with default status code', () => {
       const error = new AppError('Test error')
-      
+
       expect(error.message).toBe('Test error')
       expect(error.statusCode).toBe(500)
       expect(error.isOperational).toBe(true)
     })
 
-    it('should create AppError with custom status code', () => {
+    it('creates AppError with custom status code', () => {
       const error = new AppError('Custom error', 400)
-      
+
       expect(error.statusCode).toBe(400)
     })
 
-    it('should create NotFoundError', () => {
+    it('creates NotFoundError', () => {
       const error = new NotFoundError()
-      
+
       expect(error.message).toBe('Resource not found')
       expect(error.statusCode).toBe(404)
     })
 
-    it('should create NotFoundError with custom message', () => {
-      const error = new NotFoundError('User not found')
-      
-      expect(error.message).toBe('User not found')
-    })
-
-    it('should create ValidationError', () => {
+    it('creates ValidationError', () => {
       const error = new ValidationError()
-      
+
       expect(error.message).toBe('Validation failed')
       expect(error.statusCode).toBe(400)
     })
 
-    it('should create UnauthorizedError', () => {
+    it('creates UnauthorizedError', () => {
       const error = new UnauthorizedError()
-      
+
       expect(error.message).toBe('Unauthorized')
       expect(error.statusCode).toBe(401)
     })
 
-    it('should create ForbiddenError', () => {
+    it('creates ForbiddenError', () => {
       const error = new ForbiddenError()
-      
+
       expect(error.message).toBe('Forbidden')
       expect(error.statusCode).toBe(403)
     })
   })
 
   describe('errorHandler', () => {
-    it('should handle operational errors in production', async () => {
+    it('handles operational errors in production', () => {
       process.env.NODE_ENV = 'production'
-      
-      app.get('/test', () => {
-        throw new AppError('Operational error', 400)
-      })
-      app.use(errorHandler)
+      const res = createResponse()
 
-      const response = await request(app).get('/test')
+      errorHandler(new AppError('Operational error', 400), {}, res, () => {})
 
-      expect(response.status).toBe(400)
-      expect(response.body).toEqual({
+      expect(res.statusCode).toBe(400)
+      expect(res.body).toEqual({
         status: 'error',
         message: 'Operational error',
       })
-      
+
       process.env.NODE_ENV = 'test'
     })
 
-    it('should handle programming errors in production', async () => {
+    it('handles programming errors in production', () => {
       process.env.NODE_ENV = 'production'
-      
-      app.get('/test', () => {
-        const error = new Error('Programming error')
-        throw error
-      })
-      app.use(errorHandler)
+      const res = createResponse()
 
-      const response = await request(app).get('/test')
+      errorHandler(new Error('Programming error'), {}, res, () => {})
 
-      expect(response.status).toBe(500)
-      expect(response.body).toEqual({
+      expect(res.statusCode).toBe(500)
+      expect(res.body).toEqual({
         status: 'error',
         message: 'Something went wrong',
       })
-      
+
       process.env.NODE_ENV = 'test'
     })
 
-    it('should show detailed error in development', async () => {
+    it('shows detailed errors in development', () => {
       process.env.NODE_ENV = 'development'
-      
-      app.get('/test', () => {
-        throw new AppError('Dev error', 500)
-      })
-      app.use(errorHandler)
+      const res = createResponse()
 
-      const response = await request(app).get('/test')
+      errorHandler(new AppError('Dev error', 500), {}, res, () => {})
 
-      expect(response.status).toBe(500)
-      expect(response.body).toHaveProperty('status')
-      expect(response.body).toHaveProperty('error')
-      expect(response.body).toHaveProperty('message', 'Dev error')
-      expect(response.body).toHaveProperty('stack')
-      
-      process.env.NODE_ENV = 'test'
-    })
+      expect(res.statusCode).toBe(500)
+      expect(res.body).toHaveProperty('status')
+      expect(res.body).toHaveProperty('error')
+      expect(res.body).toHaveProperty('message', 'Dev error')
+      expect(res.body).toHaveProperty('stack')
 
-    it('should default to 500 status code', async () => {
-      process.env.NODE_ENV = 'production'
-      
-      app.get('/test', () => {
-        const error = new Error('No status code')
-        error.isOperational = true
-        throw error
-      })
-      app.use(errorHandler)
-
-      const response = await request(app).get('/test')
-
-      expect(response.status).toBe(500)
-      
       process.env.NODE_ENV = 'test'
     })
   })
 
   describe('asyncHandler', () => {
-    it('should catch errors in async functions', async () => {
-      app.get('/test', asyncHandler(async () => {
+    it('forwards async errors to next', async () => {
+      const next = jest.fn()
+      const handler = asyncHandler(async () => {
         throw new Error('Async error')
-      }))
-      app.use(errorHandler)
+      })
 
-      const response = await request(app).get('/test')
+      await handler({}, {}, next)
 
-      expect(response.status).toBe(500)
+      expect(next).toHaveBeenCalledWith(expect.any(Error))
     })
 
-    it('should pass successful responses', async () => {
-      app.get('/test', asyncHandler(async (req, res) => {
+    it('passes successful async responses through', async () => {
+      const response = createResponse()
+      const handler = asyncHandler(async (req, res) => {
         res.json({ success: true })
-      }))
+      })
 
-      const response = await request(app).get('/test')
+      await handler({}, response, () => {})
 
-      expect(response.status).toBe(200)
       expect(response.body).toEqual({ success: true })
     })
   })

@@ -1,14 +1,73 @@
 import express from 'express'
+import jwt from 'jsonwebtoken'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { authenticateQuizToken } from '../middleware/auth.js'
+import { getValidationErrorMessage } from '../lib/http.js'
+import { buildQuizSessionTokenPayload, selectDeterministicQuestions } from '../lib/quizSession.js'
 
 const router = express.Router()
+
+async function loadCandidateSession(candidateSessionId) {
+  return prisma.candidateSession.findUnique({
+    where: { id: candidateSessionId },
+    include: {
+      session: {
+        include: {
+          quizzes: {
+            include: {
+              quiz: true
+            },
+            orderBy: {
+              order: 'asc'
+            }
+          }
+        }
+      }
+    }
+  })
+}
+
+async function getQuizQuestionsForSession(candidateSession, quizIndex) {
+  const sessionQuiz = candidateSession.session.quizzes[quizIndex]
+
+  if (!sessionQuiz) {
+    return null
+  }
+
+  const questions = await prisma.question.findMany({
+    where: {
+      category: sessionQuiz.quiz.category
+    },
+    include: {
+      choices: {
+        select: {
+          id: true,
+          choiceText: true
+        }
+      }
+    },
+    orderBy: {
+      id: 'asc'
+    }
+  })
+
+  const selectedQuestions = selectDeterministicQuestions(
+    questions,
+    sessionQuiz.quiz.questionCount,
+    `${candidateSession.id}:${candidateSession.sessionId}:${quizIndex}:${sessionQuiz.quiz.id}`
+  )
+
+  return {
+    quiz: sessionQuiz.quiz,
+    questions: selectedQuestions
+  }
+}
 
 // Get candidate's available sessions
 router.get('/candidate/:candidateId/sessions', async (req, res) => {
   try {
-    const candidateId = parseInt(req.params.candidateId)
+    const candidateId = req.params.candidateId
     
     const sessions = await prisma.candidateSession.findMany({
       where: {
@@ -45,7 +104,10 @@ router.post('/start', [
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { candidateId, sessionId } = req.body
@@ -84,34 +146,16 @@ router.post('/start', [
       return res.status(400).json({ error: 'Session already completed' })
     }
 
-    // If just starting, generate questions for first quiz
-    if (candidateSession.currentQuizIndex === 0 && candidateSession.status === 'ACTIVE') {
-      const firstQuiz = candidateSession.session.quizzes[0]
-      if (firstQuiz) {
-        // Get random questions for this quiz
-        const questions = await prisma.question.findMany({
-          where: {
-            category: firstQuiz.quiz.category
-          },
-          include: {
-            choices: {
-              select: {
-                id: true,
-                choiceText: true
-              }
-            }
-          }
-        })
+    const accessToken = jwt.sign(
+      buildQuizSessionTokenPayload(candidateSession),
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    )
 
-        // Shuffle and select questions
-        const shuffled = questions.sort(() => 0.5 - Math.random())
-        const selectedQuestions = shuffled.slice(0, firstQuiz.quiz.questionCount)
-
-        candidateSession.currentQuestions = selectedQuestions
-      }
-    }
-
-    res.json(candidateSession)
+    res.json({
+      ...candidateSession,
+      accessToken
+    })
   } catch (error) {
     console.error('Start session error:', error)
     res.status(500).json({ error: 'Server error' })
@@ -119,56 +163,34 @@ router.post('/start', [
 })
 
 // Get current quiz questions
-router.get('/session/:candidateSessionId/quiz/:quizIndex', async (req, res) => {
+router.get('/session/:candidateSessionId/quiz/:quizIndex', authenticateQuizToken, async (req, res) => {
   try {
-    const candidateSessionId = parseInt(req.params.candidateSessionId)
-    const quizIndex = parseInt(req.params.quizIndex)
+    const candidateSessionId = req.params.candidateSessionId
+    const quizIndex = Number.parseInt(String(req.params.quizIndex), 10)
 
-    const candidateSession = await prisma.candidateSession.findUnique({
-      where: { id: candidateSessionId },
-      include: {
-        session: {
-          include: {
-            quizzes: {
-              include: {
-                quiz: true
-              },
-              orderBy: {
-                order: 'asc'
-              }
-            }
-          }
-        }
-      }
-    })
+    if (req.candidateSessionId !== candidateSessionId) {
+      return res.status(403).json({ error: 'Session token does not match request' })
+    }
+
+    const candidateSession = await loadCandidateSession(candidateSessionId)
 
     if (!candidateSession) {
       return res.status(404).json({ error: 'Session not found' })
     }
 
-    const sessionQuiz = candidateSession.session.quizzes[quizIndex]
-    if (!sessionQuiz) {
-      return res.status(404).json({ error: 'Quiz not found in session' })
+    if (candidateSession.status !== 'ACTIVE') {
+      return res.status(409).json({ error: 'Session is no longer active' })
     }
 
-    // Get questions for this quiz
-    const questions = await prisma.question.findMany({
-      where: {
-        category: sessionQuiz.quiz.category
-      },
-      include: {
-        choices: {
-          select: {
-            id: true,
-            choiceText: true
-          }
-        }
-      }
-    })
+    if (quizIndex !== candidateSession.currentQuizIndex) {
+      return res.status(409).json({ error: 'Requested quiz is not the current active quiz' })
+    }
 
-    // Shuffle and select questions
-    const shuffled = questions.sort(() => 0.5 - Math.random())
-    const selectedQuestions = shuffled.slice(0, sessionQuiz.quiz.questionCount)
+    const quizData = await getQuizQuestionsForSession(candidateSession, quizIndex)
+
+    if (!quizData) {
+      return res.status(404).json({ error: 'Quiz not found in session' })
+    }
 
     // Get existing answers for this candidate session (without isCorrect)
     const answers = await prisma.answer.findMany({
@@ -187,8 +209,8 @@ router.get('/session/:candidateSessionId/quiz/:quizIndex', async (req, res) => {
     })
 
     res.json({
-      quiz: sessionQuiz.quiz,
-      questions: selectedQuestions,
+      quiz: quizData.quiz,
+      questions: quizData.questions,
       answers: answers,
       totalQuizzes: candidateSession.session.quizzes.length,
       currentQuizIndex: quizIndex
@@ -206,25 +228,70 @@ router.post('/answer', [
   body('quizIndex').optional().isInt(),
   body('selectedChoiceId').optional().isInt(),
   body('textAnswer').optional().trim()
-], async (req, res) => {
+], authenticateQuizToken, async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { candidateSessionId, questionId, quizIndex, selectedChoiceId, textAnswer } = req.body
 
   try {
+    if (req.candidateSessionId !== candidateSessionId) {
+      return res.status(403).json({ error: 'Session token does not match request' })
+    }
+
+    const candidateSession = await loadCandidateSession(candidateSessionId)
+
+    if (!candidateSession) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    if (candidateSession.status !== 'ACTIVE') {
+      return res.status(409).json({ error: 'Session is no longer active' })
+    }
+
+    const resolvedQuizIndex = quizIndex ?? candidateSession.currentQuizIndex
+
+    if (resolvedQuizIndex !== candidateSession.currentQuizIndex) {
+      return res.status(409).json({ error: 'Answers can only be submitted for the current quiz' })
+    }
+
+    const quizData = await getQuizQuestionsForSession(candidateSession, resolvedQuizIndex)
+    const questionIds = new Set((quizData?.questions || []).map(question => question.id))
+
+    if (!questionIds.has(questionId)) {
+      return res.status(400).json({ error: 'Question does not belong to the current quiz' })
+    }
+
     // Get question to check if correct
     const question = await prisma.question.findUnique({
       where: { id: questionId },
       include: { choices: true }
     })
 
+    if (!question) {
+      return res.status(404).json({ error: 'Question not found' })
+    }
+
+    if (question.type === 'MULTIPLE_CHOICE' && !selectedChoiceId) {
+      return res.status(400).json({ error: 'selectedChoiceId is required for multiple choice questions' })
+    }
+
+    if (question.type !== 'MULTIPLE_CHOICE' && (!textAnswer || !textAnswer.trim())) {
+      return res.status(400).json({ error: 'textAnswer is required for written questions' })
+    }
+
     // Calculate if answer is correct for multiple choice
     let isCorrect = null
     if (question.type === 'MULTIPLE_CHOICE' && selectedChoiceId) {
       const selectedChoice = question.choices.find(c => c.id === selectedChoiceId)
+      if (!selectedChoice) {
+        return res.status(400).json({ error: 'Selected choice does not belong to this question' })
+      }
       isCorrect = selectedChoice?.isCorrect || false
     }
 
@@ -242,9 +309,9 @@ router.post('/answer', [
         where: { id: existingAnswer.id },
         data: {
           selectedChoiceId: selectedChoiceId || null,
-          textAnswer: textAnswer || null,
+          textAnswer: textAnswer?.trim() || null,
           isCorrect,
-          quizIndex: quizIndex !== undefined ? quizIndex : null
+          quizIndex: resolvedQuizIndex
         }
       })
     } else {
@@ -252,9 +319,9 @@ router.post('/answer', [
         data: {
           candidateSessionId,
           questionId,
-          quizIndex: quizIndex !== undefined ? quizIndex : null,
+          quizIndex: resolvedQuizIndex,
           selectedChoiceId: selectedChoiceId || null,
-          textAnswer: textAnswer || null,
+          textAnswer: textAnswer?.trim() || null,
           isCorrect
         }
       })
@@ -272,19 +339,26 @@ router.post('/answer', [
 // Update timer
 router.post('/timer', [
   body('candidateSessionId').isInt(),
-  body('timeRemaining').isInt()
-], async (req, res) => {
+  body('timeRemaining').isInt({ min: 0 })
+], authenticateQuizToken, async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { candidateSessionId, timeRemaining } = req.body
 
   try {
+    if (req.candidateSessionId !== candidateSessionId) {
+      return res.status(403).json({ error: 'Session token does not match request' })
+    }
+
     await prisma.candidateSession.update({
       where: { id: candidateSessionId },
-      data: { timeRemaining }
+      data: { timeRemaining: Math.max(0, timeRemaining) }
     })
 
     res.json({ message: 'Timer updated' })
@@ -297,28 +371,30 @@ router.post('/timer', [
 // Move to next quiz
 router.post('/next-quiz', [
   body('candidateSessionId').isInt()
-], async (req, res) => {
+], authenticateQuizToken, async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { candidateSessionId } = req.body
 
   try {
-    const candidateSession = await prisma.candidateSession.findUnique({
-      where: { id: candidateSessionId },
-      include: {
-        session: {
-          include: {
-            quizzes: true
-          }
-        }
-      }
-    })
+    if (req.candidateSessionId !== candidateSessionId) {
+      return res.status(403).json({ error: 'Session token does not match request' })
+    }
+
+    const candidateSession = await loadCandidateSession(candidateSessionId)
 
     if (!candidateSession) {
       return res.status(404).json({ error: 'Session not found' })
+    }
+
+    if (candidateSession.status !== 'ACTIVE') {
+      return res.status(409).json({ error: 'Session is no longer active' })
     }
 
     const nextQuizIndex = candidateSession.currentQuizIndex + 1
@@ -361,15 +437,22 @@ router.post('/next-quiz', [
 // Submit session
 router.post('/submit', [
   body('candidateSessionId').isInt()
-], async (req, res) => {
+], authenticateQuizToken, async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { candidateSessionId } = req.body
 
   try {
+    if (req.candidateSessionId !== candidateSessionId) {
+      return res.status(403).json({ error: 'Session token does not match request' })
+    }
+
     await prisma.candidateSession.update({
       where: { id: candidateSessionId },
       data: {

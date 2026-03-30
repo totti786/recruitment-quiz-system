@@ -2,6 +2,12 @@
 
 A complete local-first web application for internal recruitment quiz/testing during interviews. The system runs entirely offline with no external API dependencies.
 
+## Production Readiness Notes
+
+- Admin credentials and JWT configuration now come from environment variables. Do not deploy with the sample values from [`server/.env.example`](/home/tarek/Documents/GitHub/recruitment-quiz-system/server/.env.example).
+- Candidate quiz flows now issue a signed session token when a session starts. Subsequent quiz actions require that token.
+- The repository includes a local [`server/.env`](/home/tarek/Documents/GitHub/recruitment-quiz-system/server/.env) for development only. Replace those values before any shared or production deployment.
+
 ## Features
 
 ### Quiz Portal (Interviewee Interface)
@@ -119,7 +125,12 @@ docker-compose exec client sh
 cd recruitment-quiz-system
 ```
 
-2. Install all dependencies:
+2. Create the backend environment file:
+```bash
+cp server/.env.example server/.env
+```
+
+3. Install all dependencies:
 ```bash
 npm run setup
 ```
@@ -155,11 +166,23 @@ npm start
 
 The production build serves the static client files from the server on port 3001.
 
+## Environment Variables
+
+Backend values are loaded from `server/.env`.
+
+```bash
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="replace-with-a-long-random-secret"
+ADMIN_USERNAME="admin"
+ADMIN_PASSWORD="change-me-before-deploying"
+PORT=3001
+```
+
 ## Default Credentials
 
 **Admin Login:**
 - Username: `admin`
-- Password: `admin123`
+- Password: value from `ADMIN_PASSWORD` in `server/.env`
 
 ## Project Structure
 

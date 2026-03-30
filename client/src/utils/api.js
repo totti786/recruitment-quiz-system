@@ -1,212 +1,281 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
-class ApiError extends Error {
-  constructor(message, status) {
+export class ApiError extends Error {
+  constructor(message, status, details = null) {
     super(message)
+    this.name = 'ApiError'
     this.status = status
+    this.details = details
   }
 }
 
-async function fetchWithAuth(url, options = {}) {
-  const token = localStorage.getItem('token')
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers
+function getAdminToken() {
+  return localStorage.getItem('token')
+}
+
+function getQuizSessionToken() {
+  return sessionStorage.getItem('quizAccessToken')
+}
+
+function buildHeaders(options = {}) {
+  const headers = new Headers(options.headers || {})
+  const authMode = options.auth ?? 'admin'
+  const hasBody = options.body !== undefined && options.body !== null
+
+  if (hasBody && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
   }
-  
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
+
+  if (authMode === 'admin') {
+    const token = getAdminToken()
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
   }
-  
+
+  if (authMode === 'quiz') {
+    const token = getQuizSessionToken()
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
+  }
+
+  return headers
+}
+
+async function parseErrorResponse(response) {
+  const contentType = response.headers.get('content-type') || ''
+
+  if (contentType.includes('application/json')) {
+    return response.json().catch(() => ({}))
+  }
+
+  const text = await response.text().catch(() => '')
+  return text ? { error: text } : {}
+}
+
+async function request(url, options = {}) {
   const response = await fetch(`${API_BASE_URL}${url}`, {
     ...options,
-    headers
+    headers: buildHeaders(options),
   })
-  
+
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-    throw new ApiError(error.error || error.message || 'Request failed', response.status)
+    const payload = await parseErrorResponse(response)
+    throw new ApiError(
+      payload.error || payload.message || 'Request failed',
+      response.status,
+      payload
+    )
   }
-  
-  return response.json()
+
+  if (response.status === 204) {
+    return null
+  }
+
+  const contentType = response.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    return response.json()
+  }
+
+  return response.text()
 }
 
-// Auth API
+async function requestBlob(url, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers: buildHeaders(options),
+  })
+
+  if (!response.ok) {
+    const payload = await parseErrorResponse(response)
+    throw new ApiError(
+      payload.error || payload.message || 'Request failed',
+      response.status,
+      payload
+    )
+  }
+
+  return response.blob()
+}
+
 export const authApi = {
-  login: (username, password) => fetchWithAuth('/auth/login', {
+  login: (username, password) => request('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password })
+    auth: 'none',
+    body: JSON.stringify({ username, password }),
   }),
-  verify: () => fetchWithAuth('/auth/verify'),
-  changePassword: (currentPassword, newPassword) => fetchWithAuth('/auth/change-password', {
+  verify: () => request('/auth/verify'),
+  changePassword: (currentPassword, newPassword) => request('/auth/change-password', {
     method: 'POST',
-    body: JSON.stringify({ currentPassword, newPassword })
-  })
+    body: JSON.stringify({ currentPassword, newPassword }),
+  }),
 }
 
-// Candidates API
 export const candidatesApi = {
-  getAll: () => fetchWithAuth('/candidates'),
-  getAvailable: () => fetch(`${API_BASE_URL}/candidates/available`).then(r => r.json()),
-  getById: (id) => fetchWithAuth(`/candidates/${id}`),
-  create: (data) => fetchWithAuth('/candidates', {
+  getAll: () => request('/candidates'),
+  getAvailable: () => request('/candidates/available', { auth: 'none' }),
+  getById: (id) => request(`/candidates/${id}`),
+  create: (data) => request('/candidates', {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  update: (id, data) => fetchWithAuth(`/candidates/${id}`, {
+  update: (id, data) => request(`/candidates/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  delete: (id) => fetchWithAuth(`/candidates/${id}`, {
-    method: 'DELETE'
+  delete: (id) => request(`/candidates/${id}`, {
+    method: 'DELETE',
   }),
-  assignSession: (id, sessionId) => fetchWithAuth(`/candidates/${id}/assign-session`, {
+  assignSession: (id, sessionId) => request(`/candidates/${id}/assign-session`, {
     method: 'POST',
-    body: JSON.stringify({ sessionId })
-  })
+    body: JSON.stringify({ sessionId }),
+  }),
 }
 
-// Departments API
 export const departmentsApi = {
-  getAll: () => fetchWithAuth('/departments'),
-  getById: (id) => fetchWithAuth(`/departments/${id}`),
-  create: (data) => fetchWithAuth('/departments', {
+  getAll: () => request('/departments'),
+  getById: (id) => request(`/departments/${id}`),
+  create: (data) => request('/departments', {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  update: (id, data) => fetchWithAuth(`/departments/${id}`, {
+  update: (id, data) => request(`/departments/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  delete: (id) => fetchWithAuth(`/departments/${id}`, {
-    method: 'DELETE'
+  delete: (id) => request(`/departments/${id}`, {
+    method: 'DELETE',
   }),
-  getPositions: (id) => fetchWithAuth(`/departments/${id}/positions`)
+  getPositions: (id) => request(`/departments/${id}/positions`),
 }
 
-// Positions API
 export const positionsApi = {
-  getAll: () => fetchWithAuth('/positions'),
-  getById: (id) => fetchWithAuth(`/positions/${id}`),
-  create: (data) => fetchWithAuth('/positions', {
+  getAll: () => request('/positions'),
+  getById: (id) => request(`/positions/${id}`),
+  create: (data) => request('/positions', {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  update: (id, data) => fetchWithAuth(`/positions/${id}`, {
+  update: (id, data) => request(`/positions/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  delete: (id) => fetchWithAuth(`/positions/${id}`, {
-    method: 'DELETE'
-  })
+  delete: (id) => request(`/positions/${id}`, {
+    method: 'DELETE',
+  }),
 }
 
-// Sessions API
 export const sessionsApi = {
-  getAll: () => fetchWithAuth('/sessions'),
-  getById: (id) => fetchWithAuth(`/sessions/${id}`),
-  create: (data) => fetchWithAuth('/sessions', {
+  getAll: () => request('/sessions'),
+  getById: (id) => request(`/sessions/${id}`),
+  create: (data) => request('/sessions', {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  update: (id, data) => fetchWithAuth(`/sessions/${id}`, {
+  update: (id, data) => request(`/sessions/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  delete: (id) => fetchWithAuth(`/sessions/${id}`, {
-    method: 'DELETE'
-  })
+  delete: (id) => request(`/sessions/${id}`, {
+    method: 'DELETE',
+  }),
 }
 
-// Quizzes API
 export const quizzesApi = {
-  getAll: () => fetchWithAuth('/quizzes'),
-  getPublic: () => fetch(`${API_BASE_URL}/quizzes/public`).then(r => r.json()),
-  getById: (id) => fetchWithAuth(`/quizzes/${id}`),
-  create: (data) => fetchWithAuth('/quizzes', {
+  getAll: () => request('/quizzes'),
+  getPublic: () => request('/quizzes/public', { auth: 'none' }),
+  getById: (id) => request(`/quizzes/${id}`),
+  create: (data) => request('/quizzes', {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  update: (id, data) => fetchWithAuth(`/quizzes/${id}`, {
+  update: (id, data) => request(`/quizzes/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  delete: (id) => fetchWithAuth(`/quizzes/${id}`, {
-    method: 'DELETE'
-  })
+  delete: (id) => request(`/quizzes/${id}`, {
+    method: 'DELETE',
+  }),
 }
 
-// Quiz Sessions API (for taking quizzes)
 export const quizSessionsApi = {
-  getCandidateSessions: (candidateId) => fetch(`${API_BASE_URL}/quiz-sessions/candidate/${candidateId}/sessions`).then(r => r.json()),
-  startSession: (candidateId, sessionId) => fetch(`${API_BASE_URL}/quiz-sessions/start`, {
+  getCandidateSessions: (candidateId) => request(`/quiz-sessions/candidate/${candidateId}/sessions`, {
+    auth: 'none',
+  }),
+  startSession: (candidateId, sessionId) => request('/quiz-sessions/start', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ candidateId, sessionId })
-  }).then(r => r.json()),
-  getQuizQuestions: (candidateSessionId, quizIndex) => fetch(`${API_BASE_URL}/quiz-sessions/session/${candidateSessionId}/quiz/${quizIndex}`).then(r => r.json()),
-  submitAnswer: (data) => fetch(`${API_BASE_URL}/quiz-sessions/answer`, {
+    auth: 'none',
+    body: JSON.stringify({ candidateId, sessionId }),
+  }),
+  getQuizQuestions: (candidateSessionId, quizIndex) => request(`/quiz-sessions/session/${candidateSessionId}/quiz/${quizIndex}`, {
+    auth: 'quiz',
+  }),
+  submitAnswer: (data) => request('/quiz-sessions/answer', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).then(r => r.json()),
-  updateTimer: (candidateSessionId, timeRemaining) => fetch(`${API_BASE_URL}/quiz-sessions/timer`, {
+    auth: 'quiz',
+    body: JSON.stringify(data),
+  }),
+  updateTimer: (candidateSessionId, timeRemaining) => request('/quiz-sessions/timer', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ candidateSessionId, timeRemaining })
-  }).then(r => r.json()),
-  nextQuiz: (candidateSessionId) => fetch(`${API_BASE_URL}/quiz-sessions/next-quiz`, {
+    auth: 'quiz',
+    body: JSON.stringify({ candidateSessionId, timeRemaining }),
+  }),
+  nextQuiz: (candidateSessionId) => request('/quiz-sessions/next-quiz', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ candidateSessionId })
-  }).then(r => r.json()),
-  submitSession: (candidateSessionId) => fetch(`${API_BASE_URL}/quiz-sessions/submit`, {
+    auth: 'quiz',
+    body: JSON.stringify({ candidateSessionId }),
+  }),
+  submitSession: (candidateSessionId) => request('/quiz-sessions/submit', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ candidateSessionId })
-  }).then(r => r.json())
+    auth: 'quiz',
+    body: JSON.stringify({ candidateSessionId }),
+  }),
 }
 
-// Questions API
 export const questionsApi = {
   getAll: (filters = {}) => {
-    const params = new URLSearchParams(filters)
-    return fetchWithAuth(`/questions?${params}`)
+    const params = new URLSearchParams(
+      Object.entries(filters).filter(([, value]) => value !== undefined && value !== null && value !== '')
+    )
+    const suffix = params.toString() ? `?${params}` : ''
+    return request(`/questions${suffix}`)
   },
-  getCategories: () => fetchWithAuth('/questions/categories'),
-  getById: (id) => fetchWithAuth(`/questions/${id}`),
-  create: (data) => fetchWithAuth('/questions', {
+  getCategories: () => request('/questions/categories'),
+  getById: (id) => request(`/questions/${id}`),
+  create: (data) => request('/questions', {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  update: (id, data) => fetchWithAuth(`/questions/${id}`, {
+  update: (id, data) => request(`/questions/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  delete: (id) => fetchWithAuth(`/questions/${id}`, {
-    method: 'DELETE'
-  })
+  delete: (id) => request(`/questions/${id}`, {
+    method: 'DELETE',
+  }),
+  importCsv: (questions) => request('/questions/import', {
+    method: 'POST',
+    body: JSON.stringify({ questions }),
+  }),
 }
 
-// Dashboard API
 export const dashboardApi = {
-  getStats: () => fetchWithAuth('/dashboard/stats'),
-  getResults: () => fetchWithAuth('/dashboard/results'),
-  getResultDetails: (sessionId) => fetchWithAuth(`/dashboard/results/${sessionId}`),
-  export: () => fetchWithAuth('/dashboard/export')
+  getStats: () => request('/dashboard/stats'),
+  getResults: () => request('/dashboard/results'),
+  getResultDetails: (sessionId) => request(`/dashboard/results/${sessionId}`),
+  exportResults: () => requestBlob('/dashboard/export'),
 }
 
-// Grading API
 export const gradingApi = {
-  getPending: () => fetchWithAuth('/grading/pending'),
-  getSession: (candidateSessionId) => fetchWithAuth(`/grading/session/${candidateSessionId}`),
-  gradeAnswer: (answerId, data) => fetchWithAuth(`/grading/answer/${answerId}`, {
+  getPending: () => request('/grading/pending'),
+  getSession: (candidateSessionId) => request(`/grading/session/${candidateSessionId}`),
+  gradeAnswer: (answerId, data) => request(`/grading/answer/${answerId}`, {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   }),
-  batchGrade: (candidateSessionId, grades) => fetchWithAuth(`/grading/session/${candidateSessionId}/batch`, {
+  batchGrade: (candidateSessionId, grades) => request(`/grading/session/${candidateSessionId}/batch`, {
     method: 'POST',
-    body: JSON.stringify({ grades })
-  })
+    body: JSON.stringify({ grades }),
+  }),
 }

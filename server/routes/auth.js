@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { getValidationErrorMessage } from '../lib/http.js'
 
 const router = express.Router()
 
@@ -15,7 +15,10 @@ router.post('/login', [
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { username, password } = req.body
@@ -41,7 +44,7 @@ router.post('/login', [
     )
 
     // Check if using default password
-    const isDefaultPassword = await bcrypt.compare('admin123', admin.password)
+    const isDefaultPassword = admin.isDefaultPassword
 
     res.json({ 
       token, 
@@ -66,7 +69,10 @@ router.post('/change-password', authenticateToken, [
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { currentPassword, newPassword } = req.body
@@ -76,6 +82,10 @@ router.post('/change-password', authenticateToken, [
       where: { id: req.userId }
     })
 
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin account not found' })
+    }
+
     const isValidPassword = await bcrypt.compare(currentPassword, admin.password)
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Current password is incorrect' })
@@ -84,7 +94,10 @@ router.post('/change-password', authenticateToken, [
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     await prisma.admin.update({
       where: { id: req.userId },
-      data: { password: hashedPassword }
+      data: {
+        password: hashedPassword,
+        isDefaultPassword: false
+      }
     })
 
     res.json({ 

@@ -8,6 +8,7 @@ export default function QuizComplete() {
   useEffect(() => {
     // Clear session data
     sessionStorage.removeItem('candidateSession')
+    sessionStorage.removeItem('quizAccessToken')
   }, [])
 
   return (

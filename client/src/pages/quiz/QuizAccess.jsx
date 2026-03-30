@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, Clock, ChevronRight, Loader2, AlertCircle } from 'lucide-react'
-import { candidatesApi } from '../../utils/api.js'
+import { candidatesApi, quizSessionsApi } from '../../utils/api.js'
 
 export default function QuizAccess() {
   const navigate = useNavigate()
   const [candidates, setCandidates] = useState([])
   const [loading, setLoading] = useState(true)
+  const [startingSessionId, setStartingSessionId] = useState(null)
   const [error, setError] = useState('')
   const [selectedCandidate, setSelectedCandidate] = useState(null)
 
@@ -29,19 +30,31 @@ export default function QuizAccess() {
     setSelectedCandidate(candidate)
   }
 
-  const handleSelectSession = (session) => {
-    // Store session info and navigate to quiz
-    sessionStorage.setItem('candidateSession', JSON.stringify({
-      candidateId: selectedCandidate.id,
-      candidateName: selectedCandidate.name,
-      sessionId: session.sessionId,
-      candidateSessionId: session.id,
-      sessionName: session.session.name,
-      timeRemaining: session.timeRemaining,
-      currentQuizIndex: 0,
-      totalQuizzes: session.session.quizzes.length
-    }))
-    navigate('/quiz/session')
+  const handleSelectSession = async (session) => {
+    setError('')
+    setStartingSessionId(session.id)
+
+    try {
+      const startedSession = await quizSessionsApi.startSession(selectedCandidate.id, session.sessionId)
+
+      sessionStorage.setItem('quizAccessToken', startedSession.accessToken)
+      sessionStorage.setItem('candidateSession', JSON.stringify({
+        candidateId: selectedCandidate.id,
+        candidateName: selectedCandidate.name,
+        sessionId: startedSession.sessionId,
+        candidateSessionId: startedSession.id,
+        sessionName: startedSession.session.name,
+        timeRemaining: startedSession.timeRemaining,
+        currentQuizIndex: startedSession.currentQuizIndex,
+        totalQuizzes: startedSession.session.quizzes.length
+      }))
+
+      navigate('/quiz/session')
+    } catch (err) {
+      setError(err.message || 'Failed to start session')
+    } finally {
+      setStartingSessionId(null)
+    }
   }
 
   if (loading) {
@@ -130,7 +143,8 @@ export default function QuizAccess() {
                       <button
                         key={session.id}
                         onClick={() => handleSelectSession(session)}
-                        className="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-primary-500 hover:bg-primary-50 transition-all"
+                        disabled={startingSessionId === session.id}
+                        className="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-primary-500 hover:bg-primary-50 transition-all disabled:opacity-70"
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -162,7 +176,11 @@ export default function QuizAccess() {
                               ))}
                             </div>
                           </div>
-                          <ChevronRight className="text-gray-400" size={24} />
+                          {startingSessionId === session.id ? (
+                            <Loader2 className="text-primary-600 animate-spin" size={24} />
+                          ) : (
+                            <ChevronRight className="text-gray-400" size={24} />
+                          )}
                         </div>
                       </button>
                     ))}

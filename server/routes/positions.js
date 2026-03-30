@@ -2,7 +2,7 @@ import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { getValidationErrorMessage } from '../lib/http.js'
 
 const router = express.Router()
 
@@ -54,21 +54,28 @@ router.post('/', authenticateToken, [
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { name, departmentId } = req.body
 
   try {
     // Check for duplicate position name in the same department
-    const existing = await prisma.position.findFirst({
+    const existing = await prisma.position.findMany({
       where: {
-        name: { equals: name, mode: 'insensitive' },
         departmentId: parseInt(departmentId)
+      },
+      select: {
+        id: true,
+        name: true
       }
     })
+    const duplicate = existing.find(position => position.name.toLowerCase() === name.toLowerCase())
 
-    if (existing) {
+    if (duplicate) {
       return res.status(400).json({
         error: 'Position already exists',
         message: `A position named "${name}" already exists in this department.`
@@ -99,15 +106,36 @@ router.put('/:id', authenticateToken, [
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { name, departmentId } = req.body
 
   try {
+    const resolvedDepartmentId = departmentId ? parseInt(departmentId) : undefined
+    const positionsInDepartment = resolvedDepartmentId
+      ? await prisma.position.findMany({
+          where: {
+            departmentId: resolvedDepartmentId,
+            NOT: { id: parseInt(req.params.id) }
+          },
+          select: { id: true, name: true }
+        })
+      : []
+
+    if (name && positionsInDepartment.some(position => position.name.toLowerCase() === name.toLowerCase())) {
+      return res.status(400).json({
+        error: 'Position already exists',
+        message: `A position named "${name}" already exists in this department.`
+      })
+    }
+
     const data = {}
     if (name) data.name = name
-    if (departmentId) data.departmentId = parseInt(departmentId)
+    if (departmentId) data.departmentId = resolvedDepartmentId
 
     const position = await prisma.position.update({
       where: { id: parseInt(req.params.id) },

@@ -7,6 +7,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import swaggerUi from 'swagger-ui-express'
 import { readFileSync } from 'fs'
+import { parseId } from './lib/http.js'
 
 import authRoutes from './routes/auth.js'
 import candidateRoutes from './routes/candidates.js'
@@ -33,8 +34,22 @@ if (!process.env.JWT_SECRET) {
   process.exit(1)
 }
 
-const app = express()
+export const app = express()
 const PORT = process.env.PORT || 3001
+
+const defaultAllowedOrigins = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost',
+  'http://127.0.0.1',
+])
+
+const configuredOrigins = new Set(
+  (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean)
+)
 
 // Security middleware
 app.use(helmet({
@@ -51,7 +66,20 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true)
+    }
+
+    if (configuredOrigins.size > 0) {
+      return callback(
+        configuredOrigins.has(origin) ? null : new Error('Origin not allowed by CORS'),
+        configuredOrigins.has(origin)
+      )
+    }
+
+    return callback(defaultAllowedOrigins.has(origin) ? null : new Error('Origin not allowed by CORS'), defaultAllowedOrigins.has(origin))
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -108,6 +136,17 @@ app.get('/api/health', (req, res) => {
   })
 })
 
+app.param(['id', 'candidateId', 'candidateSessionId', 'sessionId', 'questionId', 'answerId', 'quizIndex'], (req, res, next, value, name) => {
+  const parsed = parseId(value)
+
+  if (parsed === null && !(name === 'quizIndex' && Number.parseInt(String(value), 10) === 0)) {
+    return res.status(400).json({ error: `${name} must be a positive integer` })
+  }
+
+  req.params[name] = Number.parseInt(String(value), 10)
+  next()
+})
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' })
@@ -125,7 +164,11 @@ if (process.env.NODE_ENV === 'production') {
   })
 }
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
-})
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`)
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
+  })
+}
+
+export default app

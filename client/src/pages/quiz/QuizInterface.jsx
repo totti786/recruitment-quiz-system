@@ -14,6 +14,13 @@ import {
 import { quizSessionsApi } from '../../utils/api.js'
 import Dialog from '../../components/Dialog.jsx'
 
+function normalizeAnswers(answerList) {
+  return (answerList || []).reduce((accumulator, answer) => {
+    accumulator[answer.questionId] = answer
+    return accumulator
+  }, {})
+}
+
 export default function QuizInterface() {
   const navigate = useNavigate()
   const [sessionData, setSessionData] = useState(null)
@@ -45,6 +52,11 @@ export default function QuizInterface() {
       return
     }
 
+    if (!sessionStorage.getItem('quizAccessToken')) {
+      navigate('/quiz')
+      return
+    }
+
     const session = JSON.parse(storedSession)
     setSessionData(session)
     setCandidateSessionId(session.candidateSessionId)
@@ -61,7 +73,7 @@ export default function QuizInterface() {
     try {
       const data = await quizSessionsApi.getQuizQuestions(candidateSessionId, quizIndex)
       setQuestions(data.questions)
-      setAnswers(data.answers || {})
+      setAnswers(normalizeAnswers(data.answers))
       setCurrentQuizIndex(data.currentQuizIndex)
       setCurrentQuestion(0)
       setLoading(false)
@@ -70,9 +82,10 @@ export default function QuizInterface() {
       const storedSession = JSON.parse(sessionStorage.getItem('candidateSession') || '{}')
       storedSession.currentQuizIndex = data.currentQuizIndex
       storedSession.totalQuizzes = data.totalQuizzes
+      storedSession.timeRemaining = timeRemaining
       sessionStorage.setItem('candidateSession', JSON.stringify(storedSession))
     } catch (err) {
-      setError('Failed to load quiz')
+      setError(err.message || 'Failed to load quiz')
       setLoading(false)
     }
   }
@@ -87,7 +100,7 @@ export default function QuizInterface() {
         
         // Save timer to server every 10 seconds
         if (newTime % 10 === 0 && candidateSessionId) {
-          quizSessionsApi.updateTimer(candidateSessionId, newTime).catch(console.error)
+          quizSessionsApi.updateTimer(candidateSessionId, newTime).catch(() => {})
         }
         
         if (newTime <= 0) {
@@ -166,7 +179,7 @@ export default function QuizInterface() {
         ...answerData
       })
     } catch (err) {
-      console.error('Failed to save answer:', err)
+      setError(err.message || 'Failed to save answer')
     }
   }
 
@@ -176,6 +189,7 @@ export default function QuizInterface() {
       
       if (result.complete) {
         // All quizzes complete
+        sessionStorage.removeItem('quizAccessToken')
         navigate('/quiz/complete')
       } else {
         // Update stored session with new quiz index
@@ -202,6 +216,7 @@ export default function QuizInterface() {
         try {
           await quizSessionsApi.submitSession(candidateSessionId)
           sessionStorage.removeItem('candidateSession')
+          sessionStorage.removeItem('quizAccessToken')
           navigate('/quiz/complete')
         } catch (err) {
           setError(err.message || 'Failed to submit session')
@@ -219,6 +234,7 @@ export default function QuizInterface() {
     try {
       await quizSessionsApi.submitSession(candidateSessionId)
       sessionStorage.removeItem('candidateSession')
+      sessionStorage.removeItem('quizAccessToken')
       navigate('/quiz/complete')
     } catch (err) {
       setError('Time expired but failed to auto-submit. Please click Submit.')
@@ -246,7 +262,22 @@ export default function QuizInterface() {
     )
   }
 
-  if (!sessionData || !questions.length) return null
+  if (!sessionData) return null
+
+  if (!questions.length) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-xl border border-red-100 p-6 text-center">
+          <AlertCircle className="mx-auto text-red-500 mb-3" size={28} />
+          <h1 className="text-lg font-semibold text-gray-900">Quiz unavailable</h1>
+          <p className="text-sm text-gray-600 mt-2">{error || 'No questions are available for this quiz.'}</p>
+          <button onClick={() => navigate('/quiz')} className="btn-primary mt-4">
+            Return to portal
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const question = questions[currentQuestion]
   const totalQuizzes = sessionData.totalQuizzes || 1

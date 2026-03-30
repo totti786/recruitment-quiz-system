@@ -2,7 +2,7 @@ import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
 import { authenticateToken } from '../middleware/auth.js'
-import { asyncHandler } from '../middleware/errorHandler.js'
+import { getValidationErrorMessage } from '../lib/http.js'
 
 const router = express.Router()
 
@@ -57,18 +57,22 @@ router.post('/', authenticateToken, [
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   const { name } = req.body
 
   try {
     // Check for duplicate department name
-    const existing = await prisma.department.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' } }
+    const existing = await prisma.department.findMany({
+      select: { id: true, name: true }
     })
+    const duplicate = existing.find(department => department.name.toLowerCase() === name.toLowerCase())
     
-    if (existing) {
+    if (duplicate) {
       return res.status(400).json({
         error: 'Department already exists',
         message: `A department named "${name}" already exists.`
@@ -92,10 +96,28 @@ router.put('/:id', authenticateToken, [
 ], async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() })
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
   }
 
   try {
+    const existing = await prisma.department.findMany({
+      where: {
+        NOT: { id: parseInt(req.params.id) }
+      },
+      select: { id: true, name: true }
+    })
+    const duplicate = existing.find(department => department.name.toLowerCase() === req.body.name.toLowerCase())
+
+    if (duplicate) {
+      return res.status(400).json({
+        error: 'Department already exists',
+        message: `A department named "${req.body.name}" already exists.`
+      })
+    }
+
     const department = await prisma.department.update({
       where: { id: parseInt(req.params.id) },
       data: { name: req.body.name }
