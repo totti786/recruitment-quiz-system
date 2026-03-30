@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Clock, ChevronRight, Loader2, AlertCircle } from 'lucide-react'
+import { Users, Clock3, ChevronRight, Loader2, AlertCircle, Layers3 } from 'lucide-react'
 import { candidatesApi, quizSessionsApi } from '../../utils/api.js'
 
 export default function QuizAccess() {
@@ -26,10 +26,6 @@ export default function QuizAccess() {
     }
   }
 
-  const handleSelectCandidate = (candidate) => {
-    setSelectedCandidate(candidate)
-  }
-
   const handleSelectSession = async (session) => {
     setError('')
     setStartingSessionId(session.id)
@@ -45,6 +41,7 @@ export default function QuizAccess() {
         candidateSessionId: startedSession.id,
         sessionName: startedSession.session.name,
         timeRemaining: startedSession.timeRemaining,
+        deadlineAt: Date.now() + (startedSession.timeRemaining * 1000),
         currentQuizIndex: startedSession.currentQuizIndex,
         totalQuizzes: startedSession.session.quizzes.length
       }))
@@ -59,138 +56,188 @@ export default function QuizAccess() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-blue-50">
-        <Loader2 className="animate-spin text-primary-600" size={32} />
+      <div className="flex min-h-[80vh] items-center justify-center">
+        <Loader2 className="animate-spin text-[var(--primary)]" size={34} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-50 px-4 py-12">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <div className="w-20 h-20 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-            <Users className="text-white" size={40} />
+    <div className="mx-auto max-w-6xl pt-6 sm:pt-8">
+      <section className="card mb-6 px-6 py-6 sm:px-7 sm:py-7">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-faint">
+              Candidate assessment portal
+            </p>
+            <h1 className="mt-2 text-2xl font-extrabold leading-tight text-app sm:text-[1.95rem]">
+              Complete your assigned evaluation.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-soft">
+              Select your name, choose a session, and begin when ready.
+            </p>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Quiz Portal</h1>
-          <p className="text-gray-600 text-lg">Select your name to begin your assessment</p>
+
+          <div className="inline-flex items-center justify-between gap-3 rounded-xl bg-muted px-4 py-3 text-sm lg:min-w-[220px]">
+            <span className="text-soft">Available candidates</span>
+            <span className="font-semibold text-app">
+              {candidates.length} candidate{candidates.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
+      </section>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg mb-6 flex items-center gap-2">
-            <AlertCircle size={20} />
-            {error}
+      {error && (
+        <div className="mb-6 rounded-[24px] border border-[var(--danger-soft)] bg-[var(--danger-soft)] px-5 py-4 text-[var(--danger)]">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={18} />
+            <span className="font-semibold">{error}</span>
           </div>
-        )}
+        </div>
+      )}
 
-        {candidates.length === 0 ? (
-          <div className="card text-center py-16">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="text-gray-400" size={32} />
+      {candidates.length === 0 ? (
+        <div className="card py-20 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted text-faint">
+            <Users size={28} />
+          </div>
+          <h2 className="mt-5 text-2xl font-bold text-app">No quizzes are currently assigned</h2>
+          <p className="mt-2 text-soft">If you expected to see a session here, contact your interviewer.</p>
+        </div>
+      ) : !selectedCandidate ? (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="section-title">Select your profile</h2>
+              <p className="mt-1 text-sm text-soft">Only assigned candidates appear in this list.</p>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">No Quizzes Currently Assigned</h2>
-            <p className="text-gray-600">Please contact your interviewer if you believe this is an error.</p>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {!selectedCandidate ? (
-              // Show candidate list
-              <div className="grid gap-4">
-                {candidates.map(candidate => (
-                  <button
-                    key={candidate.id}
-                    onClick={() => handleSelectCandidate(candidate)}
-                    className="card text-left hover:shadow-lg transition-shadow cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-xl font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
-                          {candidate.name}
-                        </h3>
-                        <p className="text-gray-600 mt-1">{candidate.position?.name || 'No position assigned'}</p>
-                        {candidate.email && (
-                          <p className="text-sm text-gray-500 mt-1">{candidate.email}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-primary-600">
-                        <span className="text-sm font-medium">
-                          {candidate.sessions.length} session(s) available
-                        </span>
-                        <ChevronRight size={20} />
-                      </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {candidates.map(candidate => (
+              <button
+                key={candidate.id}
+                type="button"
+                onClick={() => setSelectedCandidate(candidate)}
+                className="card interactive-surface text-left"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-[var(--primary-soft)] text-[var(--primary)]">
+                      <Users size={20} />
                     </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              // Show session selection for selected candidate
-              <div>
-                <button
-                  onClick={() => setSelectedCandidate(null)}
-                  className="text-primary-600 hover:text-primary-700 mb-6 flex items-center gap-2"
-                >
-                  ← Back to candidates
-                </button>
-                
-                <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                  <div className="bg-primary-600 text-white p-6">
-                    <h2 className="text-2xl font-bold">Welcome, {selectedCandidate.name}</h2>
-                    <p className="text-primary-100 mt-2">Select a session to begin</p>
+                    <h3 className="mt-5 text-xl font-bold text-app">{candidate.name}</h3>
+                    <p className="mt-1 text-sm font-semibold text-soft">{candidate.position?.name || 'No position assigned'}</p>
+                    <p className="mt-1 text-sm text-faint">{candidate.department?.name || 'Department pending'}</p>
                   </div>
-                  
-                  <div className="p-6 space-y-4">
-                    {selectedCandidate.sessions.map(session => (
-                      <button
-                        key={session.id}
-                        onClick={() => handleSelectSession(session)}
-                        disabled={startingSessionId === session.id}
-                        className="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-primary-500 hover:bg-primary-50 transition-all disabled:opacity-70"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              {session.session.name}
-                            </h3>
-                            {session.session.description && (
-                              <p className="text-gray-600 text-sm mt-1">
-                                {session.session.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Clock size={14} />
-                                {Math.floor(session.timeRemaining / 60)} minutes remaining
-                              </span>
-                              <span>
-                                {session.session.quizzes.length} quizzes
-                              </span>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {session.session.quizzes.map(sq => (
-                                <span
-                                  key={sq.id}
-                                  className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                                >
-                                  {sq.quiz.name}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                          {startingSessionId === session.id ? (
-                            <Loader2 className="text-primary-600 animate-spin" size={24} />
-                          ) : (
-                            <ChevronRight className="text-gray-400" size={24} />
-                          )}
-                        </div>
-                      </button>
-                    ))}
+                  <ChevronRight size={20} className="text-faint" />
+                </div>
+
+                <div className="mt-6 flex items-center justify-between rounded-2xl bg-muted px-4 py-3">
+                  <span className="text-sm font-semibold text-soft">Assigned sessions</span>
+                  <span className="text-lg font-bold text-app">{candidate.sessions.length}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">
+          <div className="card h-fit">
+            <button type="button" onClick={() => setSelectedCandidate(null)} className="btn-ghost !px-0 !py-0 text-[var(--primary)]">
+              ← Back to candidates
+            </button>
+            <div className="mt-6 rounded-[26px] bg-muted p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-faint">Selected candidate</p>
+              <h2 className="mt-3 text-2xl font-bold text-app">{selectedCandidate.name}</h2>
+              <p className="mt-1 text-soft">{selectedCandidate.position?.name || 'No position assigned'}</p>
+              <p className="mt-1 text-sm text-faint">{selectedCandidate.department?.name || 'Department pending'}</p>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div className="metric-card">
+                <div className="flex items-center gap-3">
+                  <Clock3 className="text-[var(--primary)]" size={18} />
+                  <div>
+                    <p className="text-sm font-semibold text-app">Timed assessment</p>
+                    <p className="text-sm text-soft">The remaining time stays visible during the session.</p>
                   </div>
                 </div>
               </div>
-            )}
+              <div className="metric-card">
+                <div className="flex items-center gap-3">
+                  <Layers3 className="text-[var(--primary)]" size={18} />
+                  <div>
+                    <p className="text-sm font-semibold text-app">Section-based flow</p>
+                    <p className="text-sm text-soft">Questions are grouped by quiz to keep the experience structured.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+
+          <div className="space-y-4">
+            <div>
+              <h2 className="section-title">Choose a session to begin</h2>
+              <p className="mt-1 text-sm text-soft">Start only when you are ready to complete the assessment.</p>
+            </div>
+
+            {selectedCandidate.sessions.map(session => (
+              <button
+                key={session.id}
+                type="button"
+                onClick={() => handleSelectSession(session)}
+                disabled={startingSessionId === session.id}
+                className="card interactive-surface w-full text-left disabled:opacity-70"
+              >
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-xl font-bold text-app">{session.session.name}</h3>
+                      <span className="status-pill-info">Ready to start</span>
+                    </div>
+                    {session.session.description && (
+                      <p className="mt-2 max-w-2xl text-sm text-soft">{session.session.description}</p>
+                    )}
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {session.session.quizzes.map(sq => (
+                        <span key={sq.id} className="status-pill bg-muted text-soft">
+                          {sq.quiz.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[240px]">
+                    <div className="rounded-2xl bg-muted px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Time remaining</p>
+                      <p className="mt-2 text-lg font-bold text-app">{Math.floor(session.timeRemaining / 60)} min</p>
+                    </div>
+                    <div className="rounded-2xl bg-muted px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Quiz sections</p>
+                      <p className="mt-2 text-lg font-bold text-app">{session.session.quizzes.length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex items-center justify-end border-t border-app pt-5 text-[var(--primary)]">
+                  {startingSessionId === session.id ? (
+                    <span className="inline-flex items-center gap-2 font-semibold">
+                      <Loader2 className="animate-spin" size={18} />
+                      Starting session
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2 font-semibold">
+                      Start session
+                      <ChevronRight size={18} />
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

@@ -48,29 +48,29 @@ export default function Account() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="h-full overflow-y-auto pr-1">
+      <div className="mx-auto max-w-3xl">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-surface-900">Account Settings</h1>
-        <p className="text-surface-500 mt-1">Manage your admin account and security settings</p>
+        <h1 className="page-title">Account Settings</h1>
+        <p className="page-subtitle">Manage your admin account and security settings.</p>
       </div>
 
-      {/* Account Info Card */}
-      <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 p-6 mb-6">
+      <div className="card mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl flex items-center justify-center shadow-lg shadow-primary-500/20">
-            <User className="w-8 h-8 text-white" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-app bg-muted text-app shadow-soft-app">
+            <User className="h-7 w-7" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-surface-900">{user?.username || 'Admin'}</h2>
-            <p className="text-sm text-surface-500">Administrator Account</p>
+            <h2 className="text-lg font-bold text-app">{user?.username || 'Admin'}</h2>
+            <p className="text-sm text-soft">Administrator account</p>
             <div className="flex items-center gap-2 mt-2">
               {isDefaultPassword ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700">
+                <span className="status-pill-danger">
                   <AlertTriangle size={12} />
                   Using Default Password
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                <span className="status-pill-success">
                   <Shield size={12} />
                   Password Secured
                 </span>
@@ -80,14 +80,13 @@ export default function Account() {
         </div>
       </div>
 
-      {/* Security Status */}
       {isDefaultPassword && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+        <div className="mb-6 rounded-2xl border p-4" style={{ background: 'var(--danger-soft)', borderColor: 'color-mix(in srgb, var(--danger) 28%, transparent)' }}>
           <div className="flex items-start gap-3">
-            <AlertTriangle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+            <AlertTriangle className="mt-0.5 flex-shrink-0" size={20} style={{ color: 'var(--danger)' }} />
             <div>
-              <h3 className="font-semibold text-red-900">Security Warning</h3>
-              <p className="text-sm text-red-700 mt-1">
+              <h3 className="font-semibold text-app">Security Warning</h3>
+              <p className="mt-1 text-sm" style={{ color: 'var(--danger)' }}>
                 You are currently using the default password. For security reasons, please change your password immediately.
               </p>
             </div>
@@ -95,51 +94,50 @@ export default function Account() {
         </div>
       )}
 
-      {/* Change Password */}
-      <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 p-6">
+      <div className="card">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-surface-100 rounded-xl flex items-center justify-center">
-            <Lock className="text-surface-600" size={20} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-soft">
+            <Lock size={20} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-surface-900">Change Password</h2>
-            <p className="text-sm text-surface-500">Update your account password</p>
+            <h2 className="text-lg font-bold text-app">Change Password</h2>
+            <p className="text-sm text-soft">Update your account password.</p>
           </div>
         </div>
 
         {passwordSuccess && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-            <CheckCircle className="text-green-600" size={20} />
-            <p className="text-green-700 font-medium">{passwordSuccess}</p>
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border p-4" style={{ background: 'var(--success-soft)', borderColor: 'color-mix(in srgb, var(--success) 28%, transparent)' }}>
+            <CheckCircle size={20} style={{ color: 'var(--success)' }} />
+            <p className="font-medium" style={{ color: 'var(--success)' }}>{passwordSuccess}</p>
           </div>
         )}
 
         {passwordError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-            <AlertTriangle className="text-red-600" size={20} />
-            <p className="text-red-700 font-medium">{passwordError}</p>
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border p-4" style={{ background: 'var(--danger-soft)', borderColor: 'color-mix(in srgb, var(--danger) 28%, transparent)' }}>
+            <AlertTriangle size={20} style={{ color: 'var(--danger)' }} />
+            <p className="font-medium" style={{ color: 'var(--danger)' }}>{passwordError}</p>
           </div>
         )}
 
         <form onSubmit={handlePasswordChange} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-surface-700 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-app">
               Current Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" size={18} />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" size={18} />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={passwordForm.currentPassword}
                 onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                className="w-full pl-12 pr-12 py-3 bg-surface-50 border border-surface-200 rounded-xl text-surface-900 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                className="input rounded-xl pl-12 pr-12"
                 placeholder="Enter current password"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-faint transition hover:text-soft"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -147,34 +145,34 @@ export default function Account() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-surface-700 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-app">
               New Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" size={18} />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" size={18} />
               <input
                 type="password"
                 value={passwordForm.newPassword}
                 onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                className="w-full pl-12 pr-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-surface-900 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                className="input rounded-xl pl-12 pr-4"
                 placeholder="Enter new password"
                 required
               />
             </div>
-            <p className="text-xs text-surface-400 mt-1">Password must be at least 6 characters</p>
+            <p className="mt-1 text-xs text-faint">Password must be at least 6 characters.</p>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-surface-700 mb-2">
+            <label className="mb-2 block text-sm font-semibold text-app">
               Confirm New Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" size={18} />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" size={18} />
               <input
                 type="password"
                 value={passwordForm.confirmPassword}
                 onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                className="w-full pl-12 pr-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-surface-900 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                className="input rounded-xl pl-12 pr-4"
                 placeholder="Confirm new password"
                 required
               />
@@ -184,7 +182,7 @@ export default function Account() {
           <button
             type="submit"
             disabled={passwordLoading}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-xl hover:from-primary-700 hover:to-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:ring-offset-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary-500/25"
+            className="btn-primary btn w-full rounded-xl"
           >
             {passwordLoading ? (
               <>
@@ -198,16 +196,16 @@ export default function Account() {
         </form>
       </div>
 
-      {/* Security Tips */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">Security Tips</h3>
-        <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+      <div className="mt-6 rounded-2xl border p-4" style={{ background: 'var(--info-soft)', borderColor: 'color-mix(in srgb, var(--info) 24%, transparent)' }}>
+        <h3 className="mb-2 font-semibold text-app">Security Tips</h3>
+        <ul className="list-inside list-disc space-y-1 text-sm" style={{ color: 'var(--info)' }}>
           <li>Use a strong password with at least 6 characters</li>
           <li>Include a mix of letters, numbers, and symbols</li>
           <li>Avoid using common words or personal information</li>
           <li>Change your password regularly</li>
         </ul>
       </div>
+    </div>
     </div>
   )
 }

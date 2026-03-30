@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Lock, User, Loader2, Shield } from 'lucide-react'
 import { authApi } from '../../utils/api.js'
 import { useAuthStore } from '../../hooks/useAuthStore.js'
+import ThemeToggle from '../../components/ThemeToggle.jsx'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -32,35 +33,39 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-surface-50 via-primary-50/30 to-surface-100 px-4 py-12">
+    <div className="min-h-screen px-4 py-8">
+      <div className="mx-auto mb-8 flex max-w-6xl justify-end">
+        <ThemeToggle compact />
+      </div>
+      <div className="flex items-center justify-center px-4 py-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl shadow-lg shadow-primary-500/25 mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-[linear-gradient(135deg,var(--primary),var(--primary-strong))] shadow-app mb-6">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-surface-900 tracking-tight">Quiz Admin</h1>
-          <p className="text-surface-500 mt-2">Sign in to manage your recruitment system</p>
+          <h1 className="text-3xl font-bold tracking-tight text-app">Quiz Admin</h1>
+          <p className="mt-2 text-soft">Sign in to manage your recruitment system</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 p-8">
+        <div className="card p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm animate-fade-in">
+              <div className="rounded-2xl border border-[var(--danger-soft)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)] animate-fade-in">
                 {error}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-2">
+              <label className="mb-2 block text-sm font-semibold text-soft">
                 Username
               </label>
               <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" size={18} />
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" size={18} />
                 <input
                   type="text"
                   value={credentials.username}
                   onChange={e => setCredentials({ ...credentials, username: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-surface-900 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                  className="input pl-11"
                   placeholder="Enter your username"
                   required
                   autoComplete="username"
@@ -69,16 +74,16 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-surface-700 mb-2">
+              <label className="mb-2 block text-sm font-semibold text-soft">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" size={18} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" size={18} />
                 <input
                   type="password"
                   value={credentials.password}
                   onChange={e => setCredentials({ ...credentials, password: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 bg-surface-50 border border-surface-200 rounded-xl text-surface-900 placeholder-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                  className="input pl-11"
                   placeholder="Enter your password"
                   required
                   autoComplete="current-password"
@@ -89,7 +94,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-xl hover:from-primary-700 hover:to-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:ring-offset-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary-500/25"
+              className="btn-primary btn w-full"
             >
               {loading ? (
                 <>
@@ -103,18 +108,19 @@ export default function Login() {
           </form>
 
           {isDefaultPassword && (
-            <div className="mt-8 pt-6 border-t border-surface-100">
-              <div className="flex items-center justify-center gap-2 text-sm text-surface-500">
+            <div className="mt-8 border-t border-app pt-6">
+              <div className="flex items-center justify-center gap-2 text-sm text-soft">
                 <span>Demo credentials:</span>
-                <code className="px-2 py-1 bg-surface-100 rounded-md font-mono text-surface-700">admin / admin123</code>
+                <code className="mono rounded-md bg-muted px-2 py-1 text-app">admin / admin123</code>
               </div>
             </div>
           )}
         </div>
         
-        <p className="text-center mt-6 text-sm text-surface-400">
+        <p className="mt-6 text-center text-sm text-faint">
           Secure authentication required
         </p>
+      </div>
       </div>
     </div>
   )

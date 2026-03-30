@@ -96,28 +96,28 @@ export default function Questions() {
 
   const getTypeColor = (type) => {
     const colors = {
-      MULTIPLE_CHOICE: 'bg-blue-100 text-blue-800',
-      SHORT_ANSWER: 'bg-green-100 text-green-800',
-      CODE: 'bg-purple-100 text-purple-800'
+      MULTIPLE_CHOICE: 'status-pill-info',
+      SHORT_ANSWER: 'status-pill-success',
+      CODE: 'status-pill bg-muted text-app'
     }
-    return colors[type] || 'bg-gray-100 text-gray-800'
+    return colors[type] || 'status-pill bg-muted text-soft'
   }
 
   const getDifficultyColor = (difficulty) => {
     const colors = {
-      EASY: 'bg-green-100 text-green-800',
-      MEDIUM: 'bg-yellow-100 text-yellow-800',
-      HARD: 'bg-red-100 text-red-800'
+      EASY: 'status-pill-success',
+      MEDIUM: 'status-pill-warning',
+      HARD: 'status-pill-danger'
     }
-    return colors[difficulty] || 'bg-gray-100 text-gray-800'
+    return colors[difficulty] || 'status-pill bg-muted text-soft'
   }
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Questions</h1>
-          <p className="text-gray-600 mt-1">Manage your question bank</p>
+          <h1 className="page-title">Questions</h1>
+          <p className="page-subtitle">Manage your question bank.</p>
         </div>
         <div className="flex gap-3">
           <button 
@@ -140,7 +140,7 @@ export default function Questions() {
       {/* Search and Filters */}
       <div className="mb-6 space-y-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" size={20} />
           <input
             type="text"
             value={search}
@@ -187,7 +187,8 @@ export default function Questions() {
           {(filters.category || filters.difficulty || filters.type) && (
             <button
               onClick={() => setFilters({ category: '', difficulty: '', type: '' })}
-              className="text-sm text-primary-600 hover:text-primary-700"
+              className="text-sm transition-colors hover:opacity-80"
+              style={{ color: 'var(--primary)' }}
             >
               Clear filters
             </button>
@@ -196,91 +197,96 @@ export default function Questions() {
       </div>
 
       {/* Questions List */}
+      <div className="min-h-0 flex-1">
       {loading ? (
-        <div className="flex items-center justify-center h-64">
+        <div className="flex h-full min-h-[16rem] items-center justify-center">
           <Loader2 className="animate-spin text-primary-600" size={32} />
         </div>
       ) : filteredQuestions.length === 0 ? (
-        <div className="text-center py-12 card">
-          <p className="text-gray-500">No questions found</p>
+        <div className="card py-12 text-center">
+          <p className="text-soft">No questions found</p>
           {(search || filters.category || filters.difficulty || filters.type) && (
             <button 
               onClick={() => {
                 setSearch('')
                 setFilters({ category: '', difficulty: '', type: '' })
               }}
-              className="mt-2 text-primary-600 hover:text-primary-700"
+              className="mt-2 transition-colors hover:opacity-80"
+              style={{ color: 'var(--primary)' }}
             >
               Clear all filters
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredQuestions.map(question => (
-            <div key={question.id} className="card hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-gray-900 font-medium">{question.questionText}</p>
-                  
-                  {question.codeSnippet && (
-                    <pre className="mt-3 p-3 bg-gray-900 text-gray-100 rounded-lg text-sm font-mono overflow-x-auto">
-                      {question.codeSnippet}
-                    </pre>
-                  )}
-                  
-                  {question.type === 'MULTIPLE_CHOICE' && question.choices && (
-                    <div className="mt-3 space-y-1">
-                      {question.choices.map(choice => (
-                        <div 
-                          key={choice.id} 
-                          className={`flex items-center gap-2 text-sm ${
-                            choice.isCorrect ? 'text-green-600 font-medium' : 'text-gray-600'
-                          }`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${
-                            choice.isCorrect ? 'bg-green-500' : 'bg-gray-300'
-                          }`} />
-                          {choice.choiceText}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+        <div className="h-full overflow-y-auto pr-1">
+          <div className="space-y-4">
+            {filteredQuestions.map(question => (
+              <div key={question.id} className="card hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <p className="font-medium text-app">{question.questionText}</p>
+                    
+                    {question.codeSnippet && (
+                      <pre className="mt-3 overflow-x-auto rounded-lg bg-gray-900 p-3 text-sm font-mono text-gray-100">
+                        {question.codeSnippet}
+                      </pre>
+                    )}
+                    
+                    {question.type === 'MULTIPLE_CHOICE' && question.choices && (
+                      <div className="mt-3 space-y-1">
+                        {question.choices.map(choice => (
+                          <div 
+                            key={choice.id} 
+                            className={`flex items-center gap-2 text-sm ${
+                              choice.isCorrect ? 'font-medium text-[var(--success)]' : 'text-soft'
+                            }`}
+                          >
+                            <span className={`h-2 w-2 rounded-full ${
+                              choice.isCorrect ? 'bg-[var(--success)]' : 'bg-[var(--bg-strong)]'
+                            }`} />
+                            {choice.choiceText}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                  <div className="flex items-center gap-2 mt-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getTypeColor(question.type)}`}>
-                      {question.type.replace('_', ' ')}
-                    </span>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getDifficultyColor(question.difficulty)}`}>
-                      {question.difficulty}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                      {question.category}
-                    </span>
+                    <div className="mt-4 flex items-center gap-2">
+                      <span className={getTypeColor(question.type)}>
+                        {question.type.replace('_', ' ')}
+                      </span>
+                      <span className={getDifficultyColor(question.difficulty)}>
+                        {question.difficulty}
+                      </span>
+                      <span className="status-pill bg-muted text-soft">
+                        {question.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleEdit(question)}
+                      className="rounded-lg p-2 text-soft transition-colors hover:bg-[var(--primary-soft)] hover:text-[var(--primary)]"
+                      title="Edit"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(question.id)}
+                      className="rounded-lg p-2 text-soft transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleEdit(question)}
-                    className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                    title="Edit"
-                  >
-                    <Edit2 size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(question.id)}
-                    className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
+      </div>
 
       {/* Modal */}
       {showModal && (

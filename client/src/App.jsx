@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthStore } from './hooks/useAuthStore.js'
+import { useThemeStore } from './hooks/useThemeStore.js'
 
 // Layouts
 import AdminLayout from './components/layouts/AdminLayout.jsx'
@@ -32,10 +33,12 @@ import ToastContainer from './components/Toast.jsx'
 
 function App() {
   const checkAuth = useAuthStore(state => state.checkAuth)
+  const initializeTheme = useThemeStore(state => state.initializeTheme)
   
   useEffect(() => {
     checkAuth()
-  }, [])
+    initializeTheme()
+  }, [checkAuth, initializeTheme])
 
   return (
     <ErrorBoundary>

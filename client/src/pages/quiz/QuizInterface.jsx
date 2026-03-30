@@ -1,18 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
-  Clock, 
-  ChevronLeft, 
-  ChevronRight, 
+import {
   AlertCircle,
-  CheckCircle,
+  Clock3,
   Loader2,
-  BookOpen,
-  Info,
-  HelpCircle
 } from 'lucide-react'
 import { quizSessionsApi } from '../../utils/api.js'
 import Dialog from '../../components/Dialog.jsx'
+import ProgressBar from '../../components/quiz/ProgressBar.jsx'
+import QuestionCard from '../../components/quiz/QuestionCard.jsx'
+import AnswerOption from '../../components/quiz/AnswerOption.jsx'
+import QuizNavigation from '../../components/quiz/QuizNavigation.jsx'
 
 function normalizeAnswers(answerList) {
   return (answerList || []).reduce((accumulator, answer) => {
@@ -42,96 +40,125 @@ export default function QuizInterface() {
     onConfirm: null,
     showCancel: false
   })
+  const latestTimerRef = useRef(0)
+  const latestSessionIdRef = useRef(null)
+  const latestSubmittingRef = useRef(false)
+  const deadlineAtRef = useRef(null)
+  const didExpireRef = useRef(false)
 
-  // Load session data
+  const getRemainingFromDeadline = (deadlineAt) => {
+    if (!deadlineAt) return 0
+    return Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000))
+  }
+
   useEffect(() => {
     const storedSession = sessionStorage.getItem('candidateSession')
-    
-    if (!storedSession) {
-      navigate('/quiz')
-      return
-    }
 
-    if (!sessionStorage.getItem('quizAccessToken')) {
+    if (!storedSession || !sessionStorage.getItem('quizAccessToken')) {
       navigate('/quiz')
       return
     }
 
     const session = JSON.parse(storedSession)
+    const deadlineAt = session.deadlineAt || (Date.now() + ((session.timeRemaining || 0) * 1000))
+    deadlineAtRef.current = deadlineAt
     setSessionData(session)
     setCandidateSessionId(session.candidateSessionId)
-    setTimeRemaining(session.timeRemaining)
-    
-    // Load quiz from the stored currentQuizIndex or 0
-    const quizIndex = session.currentQuizIndex || 0
-    loadQuiz(session.candidateSessionId, quizIndex)
+    setTimeRemaining(getRemainingFromDeadline(deadlineAt))
+    loadQuiz(session.candidateSessionId, session.currentQuizIndex || 0)
   }, [navigate])
 
-  // Load quiz questions
-  const loadQuiz = async (candidateSessionId, quizIndex) => {
+  const loadQuiz = async (resolvedCandidateSessionId, quizIndex) => {
     setLoading(true)
+
     try {
-      const data = await quizSessionsApi.getQuizQuestions(candidateSessionId, quizIndex)
+      const data = await quizSessionsApi.getQuizQuestions(resolvedCandidateSessionId, quizIndex)
       setQuestions(data.questions)
       setAnswers(normalizeAnswers(data.answers))
       setCurrentQuizIndex(data.currentQuizIndex)
       setCurrentQuestion(0)
-      setLoading(false)
-      
-      // Update stored session with current quiz index
+
       const storedSession = JSON.parse(sessionStorage.getItem('candidateSession') || '{}')
+      const deadlineAt = storedSession.deadlineAt || (Date.now() + (data.timeRemaining * 1000))
+      deadlineAtRef.current = deadlineAt
+      setTimeRemaining(getRemainingFromDeadline(deadlineAt))
+
       storedSession.currentQuizIndex = data.currentQuizIndex
       storedSession.totalQuizzes = data.totalQuizzes
-      storedSession.timeRemaining = timeRemaining
+      storedSession.deadlineAt = deadlineAt
+      storedSession.timeRemaining = getRemainingFromDeadline(deadlineAt)
       sessionStorage.setItem('candidateSession', JSON.stringify(storedSession))
+      setSessionData(storedSession)
     } catch (err) {
       setError(err.message || 'Failed to load quiz')
+    } finally {
       setLoading(false)
     }
   }
 
-  // Timer - global for entire session
   useEffect(() => {
     if (!sessionData || timeRemaining <= 0 || submitting) return
 
     const timer = setInterval(() => {
-      setTimeRemaining(prev => {
-        const newTime = prev - 1
-        
-        // Save timer to server every 10 seconds
-        if (newTime % 10 === 0 && candidateSessionId) {
-          quizSessionsApi.updateTimer(candidateSessionId, newTime).catch(() => {})
-        }
-        
-        if (newTime <= 0) {
-          handleTimeExpired()
-          return 0
-        }
-        return newTime
-      })
+      const nextTime = getRemainingFromDeadline(deadlineAtRef.current)
+      setTimeRemaining(nextTime)
+
+      if (nextTime % 10 === 0 && candidateSessionId) {
+        quizSessionsApi.updateTimer(candidateSessionId, nextTime).catch(() => {})
+      }
+
+      if (nextTime <= 0 && !didExpireRef.current) {
+        didExpireRef.current = true
+        handleTimeExpired()
+      }
     }, 1000)
 
     return () => clearInterval(timer)
   }, [sessionData, timeRemaining, candidateSessionId, submitting])
 
-  // Tab switching detection
+  useEffect(() => {
+    if (timeRemaining > 0) {
+      didExpireRef.current = false
+    }
+  }, [timeRemaining])
+
+  useEffect(() => {
+    if (!sessionData) return
+
+    const remaining = getRemainingFromDeadline(deadlineAtRef.current)
+    const storedSession = JSON.parse(sessionStorage.getItem('candidateSession') || '{}')
+    const nextSession = {
+      ...storedSession,
+      ...sessionData,
+      candidateSessionId,
+      currentQuizIndex,
+      deadlineAt: deadlineAtRef.current,
+      timeRemaining: remaining,
+    }
+
+    sessionStorage.setItem('candidateSession', JSON.stringify(nextSession))
+  }, [sessionData, candidateSessionId, currentQuizIndex, timeRemaining])
+
+  useEffect(() => {
+    latestTimerRef.current = timeRemaining
+    latestSessionIdRef.current = candidateSessionId
+    latestSubmittingRef.current = submitting
+  }, [timeRemaining, candidateSessionId, submitting])
+
+  useEffect(() => () => {
+    if (
+      latestSessionIdRef.current &&
+      latestTimerRef.current > 0 &&
+      !latestSubmittingRef.current
+    ) {
+      quizSessionsApi.updateTimer(latestSessionIdRef.current, latestTimerRef.current).catch(() => {})
+    }
+  }, [])
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setTabSwitchCount(prev => {
-          const newCount = prev + 1
-          if (newCount >= 3) {
-            setDialog({
-              isOpen: true,
-              title: 'Tab Switching Warning',
-              message: 'You have switched tabs too many times. Your session may be flagged for review.',
-              type: 'warning',
-              onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
-              showCancel: false
-            })
-          }
-          return newCount
-        })
+        setTabSwitchCount(prev => prev + 1)
       }
     }
 
@@ -139,80 +166,125 @@ export default function QuizInterface() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
+  useEffect(() => {
+    if (!sessionData || submitting) return
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    const handleKeyDown = (event) => {
+      const isRefreshShortcut =
+        event.key === 'F5' ||
+        ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'r')
+
+      if (isRefreshShortcut) {
+        event.preventDefault()
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [sessionData, submitting])
+
+  useEffect(() => {
+    if (tabSwitchCount >= 3) {
+      setDialog({
+        isOpen: true,
+        title: 'Stay in the assessment tab',
+        message: 'You have switched tabs several times. This session may be flagged for reviewer attention.',
+        type: 'warning',
+        onConfirm: () => setDialog(prev => ({ ...prev, isOpen: false })),
+        showCancel: false
+      })
+    }
+  }, [tabSwitchCount])
+
+  const question = questions[currentQuestion]
+  const totalQuizzes = sessionData?.totalQuizzes || 1
+  const currentAnswer = question ? answers[question.id] : null
+
+  const totalQuestionSlots = totalQuizzes * Math.max(questions.length || 1, 1)
+  const overallProgress = totalQuestionSlots
+    ? ((currentQuizIndex * Math.max(questions.length, 1) + currentQuestion + 1) / totalQuestionSlots) * 100
+    : 0
+
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600)
     const mins = Math.floor((seconds % 3600) / 60)
     const secs = seconds % 60
+
     if (hours > 0) {
       return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     }
+
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   const handleAnswerChange = async (value) => {
-    const questionId = questions[currentQuestion].id
-    const question = questions[currentQuestion]
-    
-    let answerData = {}
-    
-    if (question.type === 'MULTIPLE_CHOICE') {
-      answerData = { selectedChoiceId: parseInt(value) }
-    } else {
-      answerData = { textAnswer: value }
-    }
+    if (!question) return
+
+    const answerData = question.type === 'MULTIPLE_CHOICE'
+      ? { selectedChoiceId: parseInt(value, 10) }
+      : { textAnswer: value }
 
     setAnswers(prev => ({
       ...prev,
-      [questionId]: { ...answerData, questionId }
+      [question.id]: { ...answerData, questionId: question.id }
     }))
 
-    // Get current quiz index from session storage
-    const storedSession = JSON.parse(sessionStorage.getItem('candidateSession') || '{}')
-    const quizIndex = storedSession.currentQuizIndex || 0
-
-    // Submit answer to server
     try {
       await quizSessionsApi.submitAnswer({
         candidateSessionId,
-        questionId,
-        quizIndex,
+        questionId: question.id,
+        quizIndex: currentQuizIndex,
         ...answerData
       })
+      setError('')
     } catch (err) {
       setError(err.message || 'Failed to save answer')
     }
   }
 
-  const handleNextQuiz = async () => {
+  const handleNextStep = async () => {
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion(prev => prev + 1)
+      return
+    }
+
     try {
       const result = await quizSessionsApi.nextQuiz(candidateSessionId)
-      
+
       if (result.complete) {
-        // All quizzes complete
         sessionStorage.removeItem('quizAccessToken')
         navigate('/quiz/complete')
       } else {
-        // Update stored session with new quiz index
         const storedSession = JSON.parse(sessionStorage.getItem('candidateSession') || '{}')
         storedSession.currentQuizIndex = result.nextQuizIndex
         sessionStorage.setItem('candidateSession', JSON.stringify(storedSession))
-        
-        // Load next quiz
+        setSessionData(storedSession)
         loadQuiz(candidateSessionId, result.nextQuizIndex)
       }
     } catch (err) {
-      setError('Failed to proceed to next quiz')
+      setError(err.message || 'Failed to proceed to the next quiz')
     }
   }
 
   const handleSubmitSession = () => {
     setDialog({
       isOpen: true,
-      title: 'Submit Session?',
-      message: 'Are you sure you want to submit your session? You cannot change your answers after submission.',
+      title: 'Submit assessment?',
+      message: 'Once submitted, your answers will be locked for review.',
       type: 'warning',
       onConfirm: async () => {
         setSubmitting(true)
+
         try {
           await quizSessionsApi.submitSession(candidateSessionId)
           sessionStorage.removeItem('candidateSession')
@@ -224,54 +296,41 @@ export default function QuizInterface() {
         }
       },
       showCancel: true,
-      confirmText: 'Submit',
-      cancelText: 'Continue Quiz'
+      confirmText: 'Submit now',
+      cancelText: 'Continue working'
     })
   }
 
   const handleTimeExpired = async () => {
     setSubmitting(true)
+
     try {
       await quizSessionsApi.submitSession(candidateSessionId)
       sessionStorage.removeItem('candidateSession')
       sessionStorage.removeItem('quizAccessToken')
       navigate('/quiz/complete')
     } catch (err) {
-      setError('Time expired but failed to auto-submit. Please click Submit.')
+      setError('Time expired, but auto-submit failed. Please submit manually.')
       setSubmitting(false)
     }
   }
 
-  const getCurrentAnswer = () => {
-    if (!questions.length) return ''
-    const questionId = questions[currentQuestion].id
-    const answer = answers[questionId]
-    if (!answer) return ''
-    
-    if (answer.selectedChoiceId) {
-      return answer.selectedChoiceId.toString()
-    }
-    return answer.textAnswer || ''
-  }
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-primary-600" size={32} />
+      <div className="flex min-h-[70vh] items-center justify-center">
+        <Loader2 className="animate-spin text-[var(--primary)]" size={34} />
       </div>
     )
   }
 
-  if (!sessionData) return null
-
-  if (!questions.length) {
+  if (!sessionData || !question) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-xl border border-red-100 p-6 text-center">
-          <AlertCircle className="mx-auto text-red-500 mb-3" size={28} />
-          <h1 className="text-lg font-semibold text-gray-900">Quiz unavailable</h1>
-          <p className="text-sm text-gray-600 mt-2">{error || 'No questions are available for this quiz.'}</p>
-          <button onClick={() => navigate('/quiz')} className="btn-primary mt-4">
+      <div className="mx-auto max-w-xl">
+        <div className="card py-10 text-center">
+          <AlertCircle className="mx-auto text-[var(--danger)]" size={30} />
+          <h1 className="mt-4 text-xl font-bold text-app">This quiz could not be loaded</h1>
+          <p className="mt-2 text-soft">{error || 'The session is unavailable right now.'}</p>
+          <button onClick={() => navigate('/quiz')} className="btn-primary btn mt-5">
             Return to portal
           </button>
         </div>
@@ -279,235 +338,121 @@ export default function QuizInterface() {
     )
   }
 
-  const question = questions[currentQuestion]
-  const totalQuizzes = sessionData.totalQuizzes || 1
-  const progress = ((currentQuizIndex * questions.length + currentQuestion + 1) / (totalQuizzes * questions.length)) * 100
-  const answeredCount = Object.keys(answers).length
-
   return (
-    <div className="min-h-screen bg-gray-50 select-none">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="font-semibold text-gray-900">{sessionData.sessionName}</h1>
-              <p className="text-sm text-gray-600">{sessionData.candidateName}</p>
-            </div>
-            
-            <div className="flex items-center gap-6">
-              {/* Quiz Progress */}
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <BookOpen size={18} />
-                <span>Quiz {currentQuizIndex + 1} of {totalQuizzes}</span>
-              </div>
-              
-              {/* Timer */}
-              <div className={`flex items-center gap-2 font-mono text-lg font-bold ${
-                timeRemaining < 300 ? 'text-red-600' : 'text-gray-900'
-              }`}>
-                <Clock size={20} />
-                {formatTime(timeRemaining)}
-              </div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-              <span>Question {currentQuestion + 1} of {questions.length}</span>
-              <span>{answeredCount} answered</span>
-            </div>
-            <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-primary-600 transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Quiz Separator */}
-        {totalQuizzes > 1 && (
-          <div className="mb-6 flex items-center gap-4">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 shadow-sm">
-              <BookOpen size={18} className="text-primary-600" />
-              <span className="text-sm font-medium text-gray-700">
+    <div className="mx-auto max-w-3xl">
+      <section className="card mb-4 p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-faint">Active assessment</p>
+            <h1 className="mt-1.5 text-xl font-extrabold text-app sm:text-2xl">{sessionData.sessionName}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span className="status-pill status-pill-info !px-2.5 !py-1">
                 Quiz {currentQuizIndex + 1} of {totalQuizzes}
               </span>
+              <span className="text-soft">{sessionData.candidateName}</span>
             </div>
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-          </div>
-        )}
-
-        <div className="card">
-          {/* Question */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              {question.questionText}
-            </h2>
-
-            {question.codeSnippet && (
-              <pre className="p-4 bg-gray-900 text-gray-100 rounded-lg font-mono text-sm overflow-x-auto mb-6">
-                {question.codeSnippet}
-              </pre>
-            )}
           </div>
 
-          {/* Answer Options */}
-          <div className="space-y-3 mb-8">
-            {question.type === 'MULTIPLE_CHOICE' ? (
-              question.choices.map(choice => (
-                <label
-                  key={choice.id}
-                  className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    getCurrentAnswer() === choice.id.toString()
-                      ? 'border-primary-600 bg-primary-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`question-${question.id}`}
-                    value={choice.id}
-                    checked={getCurrentAnswer() === choice.id.toString()}
-                    onChange={(e) => handleAnswerChange(e.target.value)}
-                    className="w-4 h-4 text-primary-600"
-                  />
-                  <span className="text-gray-900">{choice.choiceText}</span>
-                </label>
-              ))
-            ) : question.type === 'SHORT_ANSWER' ? (
-              <textarea
-                value={getCurrentAnswer()}
-                onChange={(e) => handleAnswerChange(e.target.value)}
-                className="input min-h-[150px]"
-                placeholder="Type your answer here..."
-              />
-            ) : (
-              <textarea
-                value={getCurrentAnswer()}
-                onChange={(e) => handleAnswerChange(e.target.value)}
-                className="input font-mono min-h-[200px]"
-                placeholder="// Write your code here..."
-              />
-            )}
-          </div>
-
-          {/* Navigation */}
-          <div className="flex items-center justify-between pt-6 border-t">
-            <button
-              onClick={() => setCurrentQuestion(prev => Math.max(0, prev - 1))}
-              disabled={currentQuestion === 0}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft size={20} />
-              Previous
-            </button>
-
-            {/* Question Navigator */}
-            <div className="flex items-center gap-2">
-              {questions.map((q, idx) => (
-                <button
-                  key={q.id}
-                  onClick={() => setCurrentQuestion(idx)}
-                  className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                    idx === currentQuestion
-                      ? 'bg-primary-600 text-white'
-                      : answers[q.id]
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
+          <div className={`inline-flex items-center gap-2 self-start rounded-xl px-3 py-2.5 ${timeRemaining < 300 ? 'bg-[var(--danger-soft)] text-[var(--danger)]' : 'bg-muted text-app'}`}>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-faint">Time remaining</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-bold">
+                <Clock3 size={16} />
+                {formatTime(timeRemaining)}
+              </p>
             </div>
-
-            {currentQuestion < questions.length - 1 ? (
-              <button
-                onClick={() => setCurrentQuestion(prev => prev + 1)}
-                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
-              >
-                Next
-                <ChevronRight size={20} />
-              </button>
-            ) : currentQuizIndex < totalQuizzes - 1 ? (
-              <button
-                onClick={handleNextQuiz}
-                className="flex items-center gap-2 btn-primary"
-              >
-                Next Quiz
-                <ChevronRight size={18} />
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmitSession}
-                disabled={submitting}
-                className="flex items-center gap-2 btn-primary"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="animate-spin" size={18} />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    Submit Session
-                    <CheckCircle size={18} />
-                  </>
-                )}
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Scoring Information */}
-        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <div className="flex items-start gap-3">
-            <HelpCircle size={18} className="text-gray-500 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-gray-600">
-              <p className="font-medium text-gray-700 mb-1">How Your Answers Are Graded:</p>
-              <ul className="space-y-1 list-disc list-inside">
-                <li><strong>Multiple Choice:</strong> Automatically graded - you'll see results immediately after submission</li>
-                <li><strong>Written Answers & Code:</strong> Saved for manual review by the hiring team - these don't affect your automatic score</li>
-                <li>Your final score is calculated from multiple choice questions only</li>
-              </ul>
+        <div className="mt-4">
+          <ProgressBar
+            value={overallProgress}
+            label="Assessment progress"
+            detail={`${Math.round(overallProgress)}% complete`}
+          />
+        </div>
+      </section>
+
+      <div className="space-y-4">
+        <QuestionCard
+          question={question}
+        >
+          {question.type === 'MULTIPLE_CHOICE' ? (
+            question.choices.map((choice, index) => (
+              <AnswerOption
+                key={choice.id}
+                choice={choice}
+                index={index}
+                selected={currentAnswer?.selectedChoiceId === choice.id}
+                onSelect={() => handleAnswerChange(choice.id)}
+              />
+            ))
+          ) : (
+            <textarea
+              value={currentAnswer?.textAnswer || ''}
+              onChange={(e) => handleAnswerChange(e.target.value)}
+              className={`input min-h-[160px] ${question.type === 'CODE' ? 'mono' : ''}`}
+              placeholder={question.type === 'CODE' ? '// Write your solution here...' : 'Type your answer here...'}
+            />
+          )}
+        </QuestionCard>
+
+        <div className="card p-4">
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-faint">Current question</p>
+              <p className="text-sm font-semibold text-app">
+                {currentQuestion + 1} / {questions.length}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {questions.map((item, index) => (
+                <div
+                  key={item.id}
+                  className={`h-2.5 flex-1 rounded-full transition-all duration-200 ${
+                    index < currentQuestion
+                      ? 'bg-[var(--primary)]'
+                      : index === currentQuestion
+                      ? 'bg-[var(--primary)] shadow-[0_0_0_4px_var(--primary-soft)]'
+                      : 'bg-muted'
+                  }`}
+                />
+              ))}
             </div>
           </div>
+          <QuizNavigation
+            canGoBack={currentQuestion > 0}
+            canGoForward={currentQuestion < questions.length - 1}
+            onPrevious={() => setCurrentQuestion(prev => Math.max(0, prev - 1))}
+            onNext={handleNextStep}
+            onSubmit={handleSubmitSession}
+            isLastQuestion={currentQuestion === questions.length - 1}
+            isLastQuiz={currentQuizIndex === totalQuizzes - 1}
+            isSubmitting={submitting}
+          />
         </div>
 
         {error && (
-          <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-            <AlertCircle size={18} />
-            {error}
+          <div className="rounded-[24px] border border-[var(--danger-soft)] bg-[var(--danger-soft)] px-5 py-4 text-[var(--danger)]">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={18} />
+              <span className="font-semibold">{error}</span>
+            </div>
           </div>
         )}
+      </div>
 
-        {tabSwitchCount > 0 && (
-          <div className="mt-4 p-4 bg-yellow-50 text-yellow-800 rounded-lg text-sm">
-            <strong>Warning:</strong> You have switched tabs {tabSwitchCount} time(s). 
-            Excessive tab switching may flag your session for review.
-          </div>
-        )}
-
-        {/* Custom Dialog */}
-        <Dialog
-          isOpen={dialog.isOpen}
-          onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
-          title={dialog.title}
-          message={dialog.message}
-          type={dialog.type}
-          onConfirm={dialog.onConfirm}
-          showCancel={dialog.showCancel}
-          confirmText={dialog.confirmText}
-          cancelText={dialog.cancelText}
-        />
-      </main>
+      <Dialog
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onConfirm={dialog.onConfirm}
+        showCancel={dialog.showCancel}
+        confirmText={dialog.confirmText}
+        cancelText={dialog.cancelText}
+      />
     </div>
   )
 }

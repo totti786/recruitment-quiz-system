@@ -12,26 +12,26 @@ export default function QuizComplete() {
   }, [])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 px-4">
+    <div className="min-h-[78vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="card text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="text-green-600" size={40} />
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--success-soft)]">
+            <CheckCircle className="text-[var(--success)]" size={40} />
           </div>
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Thank You</h1>
-          <p className="text-lg text-gray-600 mb-8">
+          <h1 className="mb-4 text-3xl font-bold text-app">Assessment submitted</h1>
+          <p className="mb-8 text-lg text-soft">
             Your responses have been submitted.
           </p>
 
           <div className="space-y-3">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-faint">
               You may now close this window.
             </p>
             
             <button
               onClick={() => navigate('/quiz')}
-              className="w-full btn-secondary flex items-center justify-center gap-2"
+              className="btn-secondary btn w-full"
             >
               <Home size={18} />
               Return to Home

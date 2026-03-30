@@ -79,26 +79,26 @@ export default function SessionModal({ onClose, onSuccess, session = null, quizz
   const getQuizById = (id) => quizzes.find(q => q.id === id)
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-auto">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto my-8">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-black/50 p-4">
+      <div className="my-8 max-h-[90vh] w-full max-w-2xl overflow-auto rounded-[28px] border border-app bg-[var(--panel)] shadow-app backdrop-blur-xl">
+        <div className="flex items-center justify-between border-b border-app p-6">
+          <h2 className="text-xl font-semibold text-app">
             {session ? 'Edit Session' : 'Create New Session'}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="rounded-lg p-1 text-faint transition hover:bg-muted hover:text-app">
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+            <div className="rounded-2xl border p-3 text-sm" style={{ background: 'var(--danger-soft)', borderColor: 'color-mix(in srgb, var(--danger) 28%, transparent)', color: 'var(--danger)' }}>
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-app">
               Session Name *
             </label>
             <input
@@ -112,7 +112,7 @@ export default function SessionModal({ onClose, onSuccess, session = null, quizz
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-app">
               Description
             </label>
             <textarea
@@ -124,7 +124,7 @@ export default function SessionModal({ onClose, onSuccess, session = null, quizz
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-app">
               Time Limit (minutes) *
             </label>
             <input
@@ -136,34 +136,33 @@ export default function SessionModal({ onClose, onSuccess, session = null, quizz
               className="input"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="mt-1 text-xs text-soft">
               This timer applies to the entire session (all quizzes combined)
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="mb-3 block text-sm font-medium text-app">
               Select Quizzes *
             </label>
             
-            {/* Selected Quizzes (with ordering) */}
             {formData.selectedQuizzes.length > 0 && (
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 mb-2">Selected Quizzes (in order):</p>
+              <div className="mb-4 rounded-2xl bg-muted p-4">
+                <p className="mb-2 text-sm font-medium text-app">Selected Quizzes (in order):</p>
                 <div className="space-y-2">
                   {formData.selectedQuizzes.map((quizId, index) => {
                     const quiz = getQuizById(quizId)
                     return (
-                      <div key={quizId} className="flex items-center gap-2 bg-white p-2 rounded border">
-                        <GripVertical size={16} className="text-gray-400" />
-                        <span className="text-sm font-medium text-gray-500 w-6">{index + 1}.</span>
-                        <span className="flex-1 text-sm">{quiz?.name}</span>
-                        <span className="text-xs text-gray-500">{quiz?.category}</span>
+                      <div key={quizId} className="flex items-center gap-2 rounded-xl border border-app bg-[var(--bg-elevated)] p-2">
+                        <GripVertical size={16} className="text-faint" />
+                        <span className="w-6 text-sm font-medium text-faint">{index + 1}.</span>
+                        <span className="flex-1 text-sm text-app">{quiz?.name}</span>
+                        <span className="text-xs text-soft">{quiz?.category}</span>
                         <button
                           type="button"
                           onClick={() => moveQuiz(index, -1)}
                           disabled={index === 0}
-                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                          className="rounded p-1 text-faint transition hover:bg-muted hover:text-app disabled:opacity-30"
                         >
                           ↑
                         </button>
@@ -171,14 +170,15 @@ export default function SessionModal({ onClose, onSuccess, session = null, quizz
                           type="button"
                           onClick={() => moveQuiz(index, 1)}
                           disabled={index === formData.selectedQuizzes.length - 1}
-                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                          className="rounded p-1 text-faint transition hover:bg-muted hover:text-app disabled:opacity-30"
                         >
                           ↓
                         </button>
                         <button
                           type="button"
                           onClick={() => removeQuiz(quizId)}
-                          className="p-1 text-red-400 hover:text-red-600"
+                          className="rounded p-1 transition hover:bg-[var(--danger-soft)]"
+                          style={{ color: 'var(--danger)' }}
                         >
                           <Trash2 size={16} />
                         </button>
@@ -189,10 +189,9 @@ export default function SessionModal({ onClose, onSuccess, session = null, quizz
               </div>
             )}
 
-            {/* Available Quizzes */}
-            <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
+            <div className="max-h-60 space-y-2 overflow-y-auto rounded-2xl border border-app bg-[var(--bg-elevated)] p-3">
               {quizzes.filter(q => !formData.selectedQuizzes.includes(q.id)).length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
+                <p className="py-4 text-center text-sm text-soft">
                   {quizzes.length === 0 ? 'No quizzes available' : 'All quizzes selected'}
                 </p>
               ) : (
@@ -203,14 +202,14 @@ export default function SessionModal({ onClose, onSuccess, session = null, quizz
                       key={quiz.id}
                       type="button"
                       onClick={() => toggleQuiz(quiz.id)}
-                      className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-primary-500 hover:bg-primary-50 transition-colors"
+                      className="w-full rounded-xl border border-app p-3 text-left transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary-soft)]"
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">{quiz.name}</p>
-                          <p className="text-sm text-gray-600">{quiz.category} • {quiz.questionCount} questions</p>
+                          <p className="font-medium text-app">{quiz.name}</p>
+                          <p className="text-sm text-soft">{quiz.category} • {quiz.questionCount} questions</p>
                         </div>
-                        <Plus size={20} className="text-primary-600" />
+                        <Plus size={20} style={{ color: 'var(--primary)' }} />
                       </div>
                     </button>
                   ))
@@ -218,7 +217,7 @@ export default function SessionModal({ onClose, onSuccess, session = null, quizz
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-3 border-t border-app pt-4">
             <button
               type="button"
               onClick={onClose}

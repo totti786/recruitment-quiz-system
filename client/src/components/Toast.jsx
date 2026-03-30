@@ -9,10 +9,10 @@ const icons = {
 }
 
 const colors = {
-  success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-  error: 'bg-red-50 border-red-200 text-red-800',
-  warning: 'bg-amber-50 border-amber-200 text-amber-800',
-  info: 'bg-blue-50 border-blue-200 text-blue-800'
+  success: 'bg-[var(--success-soft)] text-[var(--success)] border-[var(--success-soft)]',
+  error: 'bg-[var(--danger-soft)] text-[var(--danger)] border-[var(--danger-soft)]',
+  warning: 'bg-[var(--warning-soft)] text-[var(--warning)] border-[var(--warning-soft)]',
+  info: 'bg-[var(--info-soft)] text-[var(--info)] border-[var(--info-soft)]'
 }
 
 const iconColors = {
@@ -32,7 +32,7 @@ export default function ToastContainer() {
         return (
           <div
             key={toast.id}
-            className={`animate-slide-down border rounded-lg p-4 shadow-soft flex items-start gap-3 ${colors[toast.type]}`}
+            className={`animate-slide-down rounded-2xl border p-4 shadow-app backdrop-blur-sm flex items-start gap-3 ${colors[toast.type]}`}
           >
             <Icon className={`w-5 h-5 flex-shrink-0 ${iconColors[toast.type]}`} />
             <p className="flex-1 text-sm font-medium">{toast.message}</p>

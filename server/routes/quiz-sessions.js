@@ -8,6 +8,10 @@ import { buildQuizSessionTokenPayload, selectDeterministicQuestions } from '../l
 
 const router = express.Router()
 
+function sameIdentifier(left, right) {
+  return Number(left) === Number(right)
+}
+
 async function loadCandidateSession(candidateSessionId) {
   return prisma.candidateSession.findUnique({
     where: { id: candidateSessionId },
@@ -67,7 +71,7 @@ async function getQuizQuestionsForSession(candidateSession, quizIndex) {
 // Get candidate's available sessions
 router.get('/candidate/:candidateId/sessions', async (req, res) => {
   try {
-    const candidateId = req.params.candidateId
+    const candidateId = Number.parseInt(String(req.params.candidateId), 10)
     
     const sessions = await prisma.candidateSession.findMany({
       where: {
@@ -165,10 +169,10 @@ router.post('/start', [
 // Get current quiz questions
 router.get('/session/:candidateSessionId/quiz/:quizIndex', authenticateQuizToken, async (req, res) => {
   try {
-    const candidateSessionId = req.params.candidateSessionId
+    const candidateSessionId = Number.parseInt(String(req.params.candidateSessionId), 10)
     const quizIndex = Number.parseInt(String(req.params.quizIndex), 10)
 
-    if (req.candidateSessionId !== candidateSessionId) {
+    if (!sameIdentifier(req.candidateSessionId, candidateSessionId)) {
       return res.status(403).json({ error: 'Session token does not match request' })
     }
 
@@ -212,6 +216,7 @@ router.get('/session/:candidateSessionId/quiz/:quizIndex', authenticateQuizToken
       quiz: quizData.quiz,
       questions: quizData.questions,
       answers: answers,
+      timeRemaining: candidateSession.timeRemaining,
       totalQuizzes: candidateSession.session.quizzes.length,
       currentQuizIndex: quizIndex
     })
@@ -240,7 +245,7 @@ router.post('/answer', [
   const { candidateSessionId, questionId, quizIndex, selectedChoiceId, textAnswer } = req.body
 
   try {
-    if (req.candidateSessionId !== candidateSessionId) {
+    if (!sameIdentifier(req.candidateSessionId, candidateSessionId)) {
       return res.status(403).json({ error: 'Session token does not match request' })
     }
 
@@ -352,7 +357,7 @@ router.post('/timer', [
   const { candidateSessionId, timeRemaining } = req.body
 
   try {
-    if (req.candidateSessionId !== candidateSessionId) {
+    if (!sameIdentifier(req.candidateSessionId, candidateSessionId)) {
       return res.status(403).json({ error: 'Session token does not match request' })
     }
 
@@ -383,7 +388,7 @@ router.post('/next-quiz', [
   const { candidateSessionId } = req.body
 
   try {
-    if (req.candidateSessionId !== candidateSessionId) {
+    if (!sameIdentifier(req.candidateSessionId, candidateSessionId)) {
       return res.status(403).json({ error: 'Session token does not match request' })
     }
 
@@ -449,7 +454,7 @@ router.post('/submit', [
   const { candidateSessionId } = req.body
 
   try {
-    if (req.candidateSessionId !== candidateSessionId) {
+    if (!sameIdentifier(req.candidateSessionId, candidateSessionId)) {
       return res.status(403).json({ error: 'Session token does not match request' })
     }
 

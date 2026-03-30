@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, ExternalLink, Download, Loader2, CheckCircle, XCircle, Clock, User, FileText, Building2, Briefcase, Info, ClipboardCheck } from 'lucide-react'
+import { Search, ExternalLink, Download, CheckCircle, Clock, FileText, Building2, Briefcase, Info, ClipboardCheck } from 'lucide-react'
 import { dashboardApi } from '../../utils/api.js'
 
 const SkeletonRow = () => (
@@ -56,12 +56,20 @@ export default function Results() {
     r.department?.toLowerCase().includes(search.toLowerCase())
   )
 
+  const getInitials = (name) =>
+    name
+      ?.split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part[0]?.toUpperCase())
+      .join('') || 'NA'
+
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto pr-1">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">Results</h1>
-          <p className="text-surface-500 mt-1">View and analyze quiz results</p>
+          <h1 className="page-title">Results</h1>
+          <p className="page-subtitle">View and analyze quiz results.</p>
         </div>
         <button 
           onClick={handleExport}
@@ -73,10 +81,10 @@ export default function Results() {
       </div>
 
       {/* Grading Information */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+      <div className="mb-6 rounded-2xl border p-4" style={{ background: 'var(--info-soft)', borderColor: 'color-mix(in srgb, var(--info) 24%, transparent)' }}>
         <div className="flex items-start gap-3">
-          <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-800">
+          <Info size={20} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--info)' }} />
+          <div className="text-sm" style={{ color: 'var(--info)' }}>
             <p className="font-medium mb-1">Understanding the Scoring System</p>
             <p className="mb-2">
               Scores shown below are calculated from <strong>multiple choice questions only</strong>. 
@@ -107,9 +115,9 @@ export default function Results() {
 
       {/* Results List */}
       {loading ? (
-        <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 overflow-hidden">
+        <div className="table-shell">
           <table className="w-full">
-            <thead className="bg-surface-50 border-b border-surface-200">
+            <thead className="border-b border-app bg-muted">
               <tr>
                 <th className="table-header">Candidate</th>
                 <th className="table-header">Department</th>
@@ -120,22 +128,22 @@ export default function Results() {
                 <th className="table-header text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-100">
+            <tbody className="divide-y border-app">
               {[...Array(5)].map((_, i) => <SkeletonRow key={i} />)}
             </tbody>
           </table>
         </div>
       ) : filteredResults.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl shadow-card border border-surface-200/60">
-          <div className="w-16 h-16 bg-surface-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-surface-400" />
+        <div className="card py-20 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+            <FileText className="h-8 w-8 text-faint" />
           </div>
-          <p className="text-surface-500 text-lg">No results found</p>
+          <p className="text-lg text-soft">No results found</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-card border border-surface-200/60 overflow-hidden">
+        <div className="table-shell">
           <table className="w-full">
-            <thead className="bg-surface-50 border-b border-surface-200">
+            <thead className="border-b border-app bg-muted">
               <tr>
                 <th className="table-header">Candidate</th>
                 <th className="table-header">Department</th>
@@ -146,40 +154,40 @@ export default function Results() {
                 <th className="table-header text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-100">
+            <tbody className="divide-y border-app">
               {filteredResults.map(result => (
-                <tr key={result.id} className="hover:bg-surface-50 transition-colors">
+                <tr key={result.id} className="transition-colors hover:bg-muted/80">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
-                        <User className="w-5 h-5 text-white" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-app bg-muted text-sm font-bold text-app">
+                        {getInitials(result.name)}
                       </div>
                       <div>
-                        <div className="font-semibold text-surface-900">{result.name}</div>
-                        <div className="text-sm text-surface-500">{result.email}</div>
+                        <div className="font-semibold text-app">{result.name}</div>
+                        <div className="text-sm text-soft">{result.email}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-2 text-sm text-surface-600">
-                      <Building2 size={14} className="text-surface-400" />
+                    <span className="inline-flex items-center gap-2 text-sm text-soft">
+                      <Building2 size={14} className="text-faint" />
                       {result.department}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-2 text-sm text-surface-600">
-                      <Briefcase size={14} className="text-surface-400" />
+                    <span className="inline-flex items-center gap-2 text-sm text-soft">
+                      <Briefcase size={14} className="text-faint" />
                       {result.position}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     {result.status === 'COMPLETED' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700">
+                      <span className="status-pill-success rounded-lg">
                         <CheckCircle size={14} />
                         Completed
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700">
+                      <span className="status-pill-warning rounded-lg">
                         <Clock size={14} />
                         Pending
                       </span>
@@ -188,11 +196,11 @@ export default function Results() {
                   <td className="px-6 py-4">
                     {result.scoreStatus === 'pending' ? (
                       <div>
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 mb-1">
+                        <span className="status-pill-warning mb-1 rounded-lg">
                           <Clock size={12} />
                           Pending Grading
                         </span>
-                        <p className="text-xs text-surface-400">
+                        <p className="text-xs text-faint">
                           {result.writtenPending} of {result.totalWritten} written
                         </p>
                       </div>
@@ -207,7 +215,7 @@ export default function Results() {
                       '-'
                     )}
                   </td>
-                  <td className="px-6 py-4 text-surface-600">
+                  <td className="px-6 py-4 text-soft">
                     {result.timeTaken ? `${result.timeTaken} min` : '-'}
                   </td>
                   <td className="px-6 py-4">
@@ -215,7 +223,7 @@ export default function Results() {
                       {result.scoreStatus === 'pending' && (
                         <button
                           onClick={() => navigate(`/admin/results/${result.id}`)}
-                          className="p-2.5 text-surface-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                          className="rounded-xl p-2.5 text-soft transition-all hover:bg-[var(--warning-soft)] hover:text-[var(--warning)]"
                           title="Grade Answers"
                         >
                           <ClipboardCheck size={18} />
@@ -224,7 +232,7 @@ export default function Results() {
                       <button
                         onClick={() => navigate(`/admin/results/${result.id}`)}
                         disabled={result.status !== 'COMPLETED'}
-                        className="p-2.5 text-surface-500 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="rounded-xl p-2.5 text-soft transition-all hover:bg-[var(--primary-soft)] hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-40"
                         title="View Details"
                       >
                         <ExternalLink size={18} />

@@ -54,27 +54,27 @@ export default function GenerateQuizModal({ candidate, onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-auto">
-        <div className="flex items-center justify-between p-6 border-b">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-[28px] border border-app bg-[var(--panel)] shadow-app backdrop-blur-xl">
+        <div className="flex items-center justify-between border-b border-app p-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Generate Quiz</h2>
-            <p className="text-sm text-gray-600 mt-1">for {candidate.name}</p>
+            <h2 className="text-xl font-semibold text-app">Generate Quiz</h2>
+            <p className="mt-1 text-sm text-soft">for {candidate.name}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="rounded-lg p-1 text-faint transition hover:bg-muted hover:text-app">
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+            <div className="rounded-2xl border p-3 text-sm" style={{ background: 'var(--danger-soft)', borderColor: 'color-mix(in srgb, var(--danger) 28%, transparent)', color: 'var(--danger)' }}>
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-app">
               Number of Questions
             </label>
             <input
@@ -88,7 +88,7 @@ export default function GenerateQuizModal({ candidate, onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-app">
               Time Limit (minutes)
             </label>
             <input
@@ -102,12 +102,12 @@ export default function GenerateQuizModal({ candidate, onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="mb-3 block text-sm font-medium text-app">
               Categories to Include
             </label>
             {loadingCategories ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="animate-spin text-gray-400" size={24} />
+                <Loader2 className="animate-spin text-faint" size={24} />
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -118,8 +118,8 @@ export default function GenerateQuizModal({ candidate, onClose, onSuccess }) {
                     onClick={() => toggleCategory(category)}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       config.categories.includes(category)
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'bg-muted text-soft hover:bg-[var(--bg-strong)]'
                     }`}
                   >
                     {category}
@@ -129,7 +129,7 @@ export default function GenerateQuizModal({ candidate, onClose, onSuccess }) {
             )}
           </div>
 
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-3 border-t border-app pt-4">
             <button
               type="button"
               onClick={onClose}

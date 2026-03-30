@@ -36,44 +36,44 @@ export default function AssignSessionModal({ candidate, sessions, onClose, onSuc
   const selectedSession = sessions.find(s => s.id === parseInt(selectedSessionId))
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full">
-        <div className="flex items-center justify-between p-6 border-b">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-[28px] border border-app bg-[var(--panel)] shadow-app backdrop-blur-xl">
+        <div className="flex items-center justify-between border-b border-app p-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Assign Session</h2>
-            <p className="text-sm text-gray-600 mt-1">to {candidate.name}</p>
+            <h2 className="text-xl font-semibold text-app">Assign Session</h2>
+            <p className="mt-1 text-sm text-soft">to {candidate.name}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="rounded-lg p-1 text-faint transition hover:bg-muted hover:text-app">
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+            <div className="rounded-2xl border p-3 text-sm" style={{ background: 'var(--danger-soft)', borderColor: 'color-mix(in srgb, var(--danger) 28%, transparent)', color: 'var(--danger)' }}>
               {error}
             </div>
           )}
 
           {availableSessions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="py-8 text-center text-soft">
               <p>No available sessions to assign.</p>
               <p className="text-sm mt-2">All sessions have already been assigned to this candidate.</p>
             </div>
           ) : (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-app">
                   Select Session *
                 </label>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {availableSessions.map(session => (
                     <label
                       key={session.id}
-                      className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${
                         selectedSessionId === session.id.toString()
-                          ? 'border-primary-600 bg-primary-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-[var(--primary)] bg-[var(--primary-soft)]'
+                          : 'border-app hover:bg-muted'
                       }`}
                     >
                       <input
@@ -85,11 +85,11 @@ export default function AssignSessionModal({ candidate, sessions, onClose, onSuc
                         className="w-4 h-4 text-primary-600"
                       />
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{session.name}</p>
+                        <p className="font-medium text-app">{session.name}</p>
                         {session.description && (
-                          <p className="text-sm text-gray-600 mt-1">{session.description}</p>
+                          <p className="mt-1 text-sm text-soft">{session.description}</p>
                         )}
-                        <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                        <div className="mt-2 flex items-center gap-4 text-sm text-soft">
                           <span className="flex items-center gap-1">
                             <Clock size={14} />
                             {session.timeLimit} minutes
@@ -106,11 +106,11 @@ export default function AssignSessionModal({ candidate, sessions, onClose, onSuc
               </div>
 
               {selectedSession && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Quizzes in this session:</h4>
+                <div className="rounded-2xl bg-muted p-4">
+                  <h4 className="mb-2 font-medium text-app">Quizzes in this session:</h4>
                   <div className="space-y-1">
                     {selectedSession.quizzes?.map((sq, idx) => (
-                      <div key={sq.id} className="text-sm text-gray-600">
+                      <div key={sq.id} className="text-sm text-soft">
                         {idx + 1}. {sq.quiz.name} ({sq.quiz.category})
                       </div>
                     ))}
@@ -120,7 +120,7 @@ export default function AssignSessionModal({ candidate, sessions, onClose, onSuc
             </>
           )}
 
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-3 border-t border-app pt-4">
             <button
               type="button"
               onClick={onClose}

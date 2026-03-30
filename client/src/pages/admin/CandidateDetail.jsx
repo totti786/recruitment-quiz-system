@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Mail, Briefcase, Calendar, ClipboardList, CheckCircle, Clock, Phone, Building2, Pencil } from 'lucide-react'
+import { ArrowLeft, Mail, Briefcase, Calendar, ClipboardList, CheckCircle, Clock3, Phone, Building2, Pencil } from 'lucide-react'
 import { candidatesApi } from '../../utils/api.js'
 import CandidateModal from '../../components/modals/CandidateModal.jsx'
 
@@ -19,8 +19,6 @@ export default function CandidateDetail() {
     try {
       const data = await candidatesApi.getById(id)
       setCandidate(data)
-    } catch (err) {
-      console.error('Failed to load candidate:', err)
     } finally {
       setLoading(false)
     }
@@ -28,18 +26,18 @@ export default function CandidateDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex h-72 items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--primary-soft)] border-t-[var(--primary)]" />
       </div>
     )
   }
 
   if (!candidate) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600">Candidate not found</p>
-        <button onClick={() => navigate('/admin/candidates')} className="mt-4 btn-primary">
-          Back to Candidates
+      <div className="card py-16 text-center">
+        <p className="text-lg font-semibold text-app">Candidate not found</p>
+        <button onClick={() => navigate('/admin/candidates')} className="btn-primary btn mt-5">
+          Back to candidates
         </button>
       </div>
     )
@@ -48,165 +46,144 @@ export default function CandidateDetail() {
   const latestSession = candidate.sessions?.[0]
 
   return (
-    <div>
-      <button 
-        onClick={() => navigate('/admin/candidates')}
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
-      >
-        <ArrowLeft size={20} />
-        Back to Candidates
+    <div className="h-full overflow-y-auto pr-1">
+      <div className="space-y-6">
+      <button onClick={() => navigate('/admin/candidates')} className="btn-ghost !px-0 !py-0 text-[var(--primary)]">
+        <ArrowLeft size={18} />
+        Back to candidates
       </button>
 
-      {/* Candidate Info */}
-      <div className="card mb-6">
-        <div className="flex items-start justify-between">
+      <section className="card">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{candidate.name}</h1>
-            <div className="flex flex-wrap items-center gap-4 mt-2 text-gray-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-faint">Candidate profile</p>
+            <h1 className="mt-3 text-3xl font-extrabold text-app">{candidate.name}</h1>
+            <div className="mt-5 flex flex-wrap gap-3 text-sm text-soft">
               {candidate.department && (
-                <span className="flex items-center gap-1">
-                  <Building2 size={16} />
+                <span className="status-pill bg-muted text-soft">
+                  <Building2 size={14} />
                   {candidate.department.name}
                 </span>
               )}
-              <span className="flex items-center gap-1">
-                <Briefcase size={16} />
-                {candidate.position?.name || '-'}
+              <span className="status-pill bg-muted text-soft">
+                <Briefcase size={14} />
+                {candidate.position?.name || 'Position pending'}
               </span>
               {candidate.phoneNumber && (
-                <span className="flex items-center gap-1">
-                  <Phone size={16} />
+                <span className="status-pill bg-muted text-soft">
+                  <Phone size={14} />
                   {candidate.phoneNumber}
                 </span>
               )}
               {candidate.email && (
-                <span className="flex items-center gap-1">
-                  <Mail size={16} />
+                <span className="status-pill bg-muted text-soft">
+                  <Mail size={14} />
                   {candidate.email}
                 </span>
               )}
-              <span className="flex items-center gap-1">
-                <Calendar size={16} />
-                Added {new Date(candidate.createdAt).toLocaleDateString()}
-              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="flex items-center gap-2 px-4 py-2 text-primary-600 hover:bg-primary-50 rounded-xl transition-all border border-primary-200"
-            >
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <button onClick={() => setShowEditModal(true)} className="btn-secondary btn">
               <Pencil size={18} />
-              Edit
+              Edit profile
             </button>
-
-            {latestSession && latestSession.status === 'COMPLETED' ? (
-            <div>
-              {latestSession.score !== null && latestSession.score !== undefined ? (
-                <span className={`text-3xl font-bold ${
-                  latestSession.score >= 70 ? 'text-green-600' : 
-                  latestSession.score >= 50 ? 'text-yellow-600' : 'text-red-600'
-                }`}>
-                  {latestSession.score?.toFixed(1)}%
-                </span>
+            <div className="metric-card min-w-[180px]">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Latest outcome</p>
+              {latestSession?.status === 'COMPLETED' && latestSession.score !== null ? (
+                <>
+                  <p className="mt-3 text-3xl font-extrabold text-app">{latestSession.score.toFixed(1)}%</p>
+                  <p className="mt-2 text-sm text-soft">Most recent completed session score.</p>
+                </>
               ) : (
-                <span className="text-2xl font-bold text-gray-400">-</span>
+                <>
+                  <p className="mt-3 text-lg font-bold text-app">{latestSession?.status || 'No session yet'}</p>
+                  <p className="mt-2 text-sm text-soft">No completed assessment available.</p>
+                </>
               )}
-              <p className="text-sm text-gray-600">Latest Score</p>
             </div>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-              <Clock size={16} />
-              {latestSession?.status || 'No Session'}
-            </span>
-          )}
           </div>
         </div>
-      </div>
 
-      {/* Sessions */}
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Assigned Sessions</h2>
-        
-        {candidate.sessions?.length === 0 ? (
-          <div className="card text-center py-8">
-            <ClipboardList size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">No sessions assigned yet</p>
-            <button 
-              onClick={() => navigate('/admin/candidates')}
-              className="mt-4 btn-primary"
-            >
-              Assign Session
-            </button>
+        <div className="mt-6 grid gap-4 border-t border-app pt-6 md:grid-cols-3">
+          <div className="rounded-2xl bg-muted px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Added</p>
+            <p className="mt-2 text-sm font-semibold text-app">{new Date(candidate.createdAt).toLocaleDateString()}</p>
+          </div>
+          <div className="rounded-2xl bg-muted px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Assigned sessions</p>
+            <p className="mt-2 text-sm font-semibold text-app">{candidate.sessions?.length || 0}</p>
+          </div>
+          <div className="rounded-2xl bg-muted px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Completed sessions</p>
+            <p className="mt-2 text-sm font-semibold text-app">{candidate.sessions?.filter(session => session.status === 'COMPLETED').length || 0}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="section-title">Assigned sessions</h2>
+          <p className="mt-1 text-sm text-soft">Review status, timing, and completed outcomes by assessment session.</p>
+        </div>
+
+        {!candidate.sessions?.length ? (
+          <div className="card py-16 text-center">
+            <ClipboardList className="mx-auto text-faint" size={28} />
+            <h3 className="mt-4 text-xl font-bold text-app">No sessions assigned</h3>
+            <p className="mt-2 text-soft">Assign a session from the candidate list when ready.</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {candidate.sessions?.map(session => (
-              <div key={session.id} className="card hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
+            {candidate.sessions.map(session => (
+              <div key={session.id} className="card">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-gray-900">{session.session?.name}</h3>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        session.status === 'COMPLETED'
-                          ? 'bg-green-100 text-green-800'
-                          : session.status === 'PAUSED'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-xl font-bold text-app">{session.session?.name}</h3>
+                      <span className={session.status === 'COMPLETED' ? 'status-pill-success' : 'status-pill-info'}>
                         {session.status}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                      <span className="flex items-center gap-1">
+                    <div className="mt-4 flex flex-wrap gap-3 text-sm text-soft">
+                      <span className="status-pill bg-muted text-soft">
                         <Calendar size={14} />
-                        Started: {new Date(session.startedAt).toLocaleString()}
+                        Started {new Date(session.startedAt).toLocaleString()}
                       </span>
                       {session.completedAt && (
-                        <span className="flex items-center gap-1">
+                        <span className="status-pill bg-muted text-soft">
                           <CheckCircle size={14} />
-                          Completed: {new Date(session.completedAt).toLocaleString()}
+                          Completed {new Date(session.completedAt).toLocaleString()}
                         </span>
                       )}
-                      {session.status === 'COMPLETED' && session.timeTaken !== null ? (
-                        <span className="flex items-center gap-1">
-                          <Clock size={14} />
-                          {session.timeTaken} mins taken
+                      {session.status === 'ACTIVE' ? (
+                        <span className="status-pill bg-muted text-soft">
+                          <Clock3 size={14} />
+                          {Math.floor(session.timeRemaining / 60)} minutes remaining
                         </span>
-                      ) : session.status === 'ACTIVE' ? (
-                        <span className="flex items-center gap-1">
-                          <Clock size={14} />
-                          {Math.floor(session.timeRemaining / 60)} mins remaining
+                      ) : session.timeTaken !== null ? (
+                        <span className="status-pill bg-muted text-soft">
+                          <Clock3 size={14} />
+                          {session.timeTaken} minutes used
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-2 text-sm text-gray-500">
-                      {session.session?.quizzes?.length || 0} quizzes
-                    </div>
                   </div>
-                  
+
                   <div className="text-right">
-                    {session.score !== null && session.score !== undefined ? (
-                      <span className={`text-2xl font-bold ${
-                        session.score >= 70 ? 'text-green-600' : 
-                        session.score >= 50 ? 'text-yellow-600' : 'text-red-600'
-                      }`}>
-                        {session.score.toFixed(1)}%
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Score</p>
+                    <p className="mt-2 text-3xl font-extrabold text-app">
+                      {session.score !== null && session.score !== undefined ? `${session.score.toFixed(1)}%` : '--'}
+                    </p>
+                    <p className="mt-1 text-sm text-soft">{session.session?.quizzes?.length || 0} quizzes included</p>
                   </div>
                 </div>
 
                 {session.status === 'COMPLETED' && (
-                  <div className="mt-4 pt-4 border-t">
-                    <button
-                      onClick={() => navigate(`/admin/results/${session.id}`)}
-                      className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                    >
-                      View Detailed Results →
+                  <div className="mt-5 border-t border-app pt-5">
+                    <button onClick={() => navigate(`/admin/results/${session.id}`)} className="btn-primary btn">
+                      Open detailed results
                     </button>
                   </div>
                 )}
@@ -214,10 +191,9 @@ export default function CandidateDetail() {
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Edit Modal */}
-      {showEditModal && candidate && (
+      {showEditModal && (
         <CandidateModal
           candidate={candidate}
           onClose={() => setShowEditModal(false)}
@@ -227,6 +203,7 @@ export default function CandidateDetail() {
           }}
         />
       )}
+    </div>
     </div>
   )
 }

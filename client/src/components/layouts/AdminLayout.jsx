@@ -1,9 +1,9 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { 
-  LayoutDashboard, 
-  Users, 
-  HelpCircle, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Users,
+  HelpCircle,
+  BarChart3,
   LogOut,
   Menu,
   X,
@@ -17,11 +17,11 @@ import {
   Eye,
   EyeOff,
   User,
-  ClipboardCheck
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useAuthStore } from '../../hooks/useAuthStore.js'
 import { authApi } from '../../utils/api.js'
+import ThemeToggle from '../ThemeToggle.jsx'
 
 const navItems = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -35,11 +35,118 @@ const navItems = [
   { path: '/admin/account', label: 'Account', icon: User },
 ]
 
+function AdminPasswordModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  passwordForm,
+  setPasswordForm,
+  passwordError,
+  passwordLoading,
+  passwordSuccess,
+  showPassword,
+  setShowPassword,
+}) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+      <div className="card max-w-md w-full">
+        <div className="flex items-start gap-4 border-b border-app pb-5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--warning-soft)] text-[var(--warning)]">
+            <AlertTriangle size={22} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-app">Change default password</h2>
+            <p className="mt-1 text-sm text-soft">Protect reviewer access before you continue.</p>
+          </div>
+        </div>
+
+        <div className="pt-6">
+          {passwordSuccess ? (
+            <div className="py-4 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--success-soft)] text-[var(--success)]">
+                <Shield size={30} />
+              </div>
+              <h3 className="text-lg font-semibold text-app">Password updated</h3>
+              <p className="mt-2 text-soft">Your admin account is now secured.</p>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="space-y-4">
+              {passwordError && (
+                <div className="rounded-2xl border border-[var(--danger-soft)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
+                  {passwordError}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-soft">Current password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" size={18} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={passwordForm.currentPassword}
+                    onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    className="input pl-11 pr-11"
+                    placeholder="Enter current password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-faint"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-soft">New password</label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="input"
+                  placeholder="Enter new password"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-soft">Confirm password</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="input"
+                  placeholder="Confirm new password"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={onClose} className="btn-secondary btn">
+                  Later
+                </button>
+                <button type="submit" disabled={passwordLoading} className="btn-primary btn">
+                  {passwordLoading ? 'Saving...' : 'Update password'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const logout = useAuthStore(state => state.logout)
   const isDefaultPassword = useAuthStore(state => state.isDefaultPassword)
+  const user = useAuthStore(state => state.user)
   const markPasswordChanged = useAuthStore(state => state.markPasswordChanged)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
@@ -59,6 +166,11 @@ export default function AdminLayout() {
     }
   }, [isDefaultPassword])
 
+  const activeItem = useMemo(
+    () => navItems.find(item => location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path))),
+    [location.pathname]
+  )
+
   const handleLogout = () => {
     logout()
     navigate('/admin/login')
@@ -67,26 +179,26 @@ export default function AdminLayout() {
   const handlePasswordChange = async (e) => {
     e.preventDefault()
     setPasswordError('')
-    
+
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setPasswordError('New passwords do not match')
       return
     }
-    
+
     if (passwordForm.newPassword.length < 6) {
       setPasswordError('Password must be at least 6 characters')
       return
     }
 
     setPasswordLoading(true)
-    
+
     try {
       await authApi.changePassword(passwordForm.currentPassword, passwordForm.newPassword)
       setPasswordSuccess(true)
       markPasswordChanged()
       setTimeout(() => {
         setShowPasswordModal(false)
-      }, 2000)
+      }, 1600)
     } catch (err) {
       setPasswordError(err.message || 'Failed to change password')
     } finally {
@@ -95,191 +207,103 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-50 flex">
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-surface-200/60 shadow-soft transform transition-transform duration-300 ease-in-out
-        lg:translate-x-0 lg:static lg:shadow-none
-        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="h-full flex flex-col">
-          <div className="p-6 border-b border-surface-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/20">
-                <Shield className="w-5 h-5 text-white" />
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden lg:p-6">
+      <div className="lg:flex lg:h-full lg:gap-6">
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-app bg-[var(--panel)] p-5 shadow-app backdrop-blur-xl transition-transform duration-300 lg:sticky lg:top-0 lg:h-full lg:translate-x-0 lg:overflow-hidden lg:rounded-[32px] lg:border ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between border-b border-app pb-5">
+            <Link to="/admin" className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-[linear-gradient(135deg,var(--primary),var(--primary-strong))] text-white shadow-app">
+                <Shield size={22} />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-surface-900">Quiz Admin</h1>
-                <p className="text-xs text-surface-500">Recruitment System</p>
+                <h1 className="text-lg font-extrabold text-app">Recruitment Console</h1>
+                <p className="text-xs uppercase tracking-[0.16em] text-faint">Assessment ops</p>
               </div>
-            </div>
+            </Link>
+            <button className="lg:hidden btn-ghost !px-2 !py-2" onClick={() => setMobileMenuOpen(false)}>
+              <X size={18} />
+            </button>
           </div>
-          
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+
+          <nav className="mt-5 flex-1 space-y-1 overflow-y-auto pr-1">
             {navItems.map(item => {
               const Icon = item.icon
-              const isActive = location.pathname === item.path || 
-                (item.path !== '/admin' && location.pathname.startsWith(item.path))
-              
+              const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path))
+
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`
-                    flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200
-                    ${isActive 
-                      ? 'bg-primary-50 text-primary-700 font-semibold' 
-                      : 'text-surface-600 hover:bg-surface-50 hover:text-surface-900'
-                    }
-                  `}
                   onClick={() => setMobileMenuOpen(false)}
+                  className={`interactive-surface flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${
+                    isActive
+                      ? 'bg-[var(--primary-soft)] text-[var(--primary)]'
+                      : 'text-soft hover:bg-muted'
+                  }`}
                 >
-                  <Icon size={18} className={isActive ? 'text-primary-600' : 'text-surface-400'} />
+                  <Icon size={18} />
                   <span>{item.label}</span>
                 </Link>
               )
             })}
           </nav>
-          
-          <div className="p-4 border-t border-surface-100">
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 px-4 py-2.5 w-full rounded-xl text-surface-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
-            >
+
+          <div className="space-y-3 border-t border-app pt-5">
+            <div className="rounded-2xl bg-muted p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Signed in</p>
+              <p className="mt-2 font-semibold text-app">{user?.username || 'Administrator'}</p>
+              <p className="mt-1 text-sm text-soft">Review candidate performance and grading progress.</p>
+            </div>
+            <button onClick={handleLogout} className="btn-secondary btn w-full justify-center">
               <LogOut size={18} />
-              <span className="font-medium">Logout</span>
+              Logout
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Mobile menu button */}
-      <button
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white rounded-xl shadow-card border border-surface-200/60 hover:shadow-soft transition-shadow"
-      >
-        {mobileMenuOpen ? <X size={20} className="text-surface-600" /> : <Menu size={20} className="text-surface-600" />}
-      </button>
-
-      {/* Overlay */}
       {mobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/30 z-40 lg:hidden backdrop-blur-sm"
-          onClick={() => setMobileMenuOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" onClick={() => setMobileMenuOpen(false)} />
       )}
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-4 lg:p-8">
-          <Outlet />
-        </div>
-      </main>
-
-      {/* Password Change Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-surface-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                  <AlertTriangle className="text-amber-600" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-surface-900">Change Default Password</h2>
-                  <p className="text-sm text-surface-500">For security reasons, please change your password</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {passwordSuccess ? (
-                <div className="text-center py-4">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Shield className="text-green-600" size={32} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-surface-900">Password Changed!</h3>
-                  <p className="text-surface-500 mt-2">Your password has been updated successfully.</p>
-                </div>
-              ) : (
-                <form onSubmit={handlePasswordChange} className="space-y-4">
-                  {passwordError && (
-                    <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm">
-                      {passwordError}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-surface-700 mb-2">
-                      Current Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" size={18} />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={passwordForm.currentPassword}
-                        onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                        className="w-full pl-10 pr-10 py-2.5 bg-surface-50 border border-surface-200 rounded-xl text-surface-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                        placeholder="Enter current password"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-surface-700 mb-2">
-                      New Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" size={18} />
-                      <input
-                        type="password"
-                        value={passwordForm.newPassword}
-                        onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl text-surface-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                        placeholder="Enter new password"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-surface-700 mb-2">
-                      Confirm New Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" size={18} />
-                      <input
-                        type="password"
-                        value={passwordForm.confirmPassword}
-                        onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2.5 bg-surface-50 border border-surface-200 rounded-xl text-surface-900 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                        placeholder="Confirm new password"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={passwordLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-xl hover:from-primary-700 hover:to-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:ring-offset-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary-500/25"
-                  >
-                    {passwordLoading ? 'Changing...' : 'Change Password'}
-                  </button>
-                </form>
-              )}
+      <div className="flex flex-1 min-h-0 flex-col p-4 lg:h-full lg:p-0 lg:pr-1">
+        <header className="card mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <button type="button" onClick={() => setMobileMenuOpen(true)} className="btn-secondary btn lg:hidden">
+              <Menu size={18} />
+            </button>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-faint">Admin workspace</p>
+              <h2 className="mt-2 text-2xl font-bold text-app">{activeItem?.label || 'Dashboard'}</h2>
+              <p className="mt-1 text-sm text-soft">Fast, structured review for candidate assessments.</p>
             </div>
           </div>
-        </div>
-      )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            {isDefaultPassword && <span className="status-pill-warning">Security action required</span>}
+            <ThemeToggle />
+          </div>
+        </header>
+
+        <main className="min-h-0 flex-1 overflow-hidden">
+          <Outlet />
+        </main>
+      </div>
+      </div>
+
+      <AdminPasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onSubmit={handlePasswordChange}
+        passwordForm={passwordForm}
+        setPasswordForm={setPasswordForm}
+        passwordError={passwordError}
+        passwordLoading={passwordLoading}
+        passwordSuccess={passwordSuccess}
+        showPassword={showPassword}
+        setShowPassword={setShowPassword}
+      />
     </div>
   )
 }
