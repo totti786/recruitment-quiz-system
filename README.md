@@ -57,19 +57,20 @@ The easiest way to run this application is using Docker.
 cd recruitment-quiz-system
 
 # Start all services in development mode
-docker-compose up
+docker-compose up --build
 
 # Or run in background
-docker-compose up -d
+docker-compose up -d --build
 ```
 
 Access the application:
 - **Client**: http://localhost:5173
 - **Server API**: http://localhost:3001
 
-**First time setup** - Initialize the database:
+**First time setup** - Database is automatically initialized on first run via `docker-compose.yml` command.
+
+To reset the database:
 ```bash
-docker-compose exec server npx prisma migrate dev
 docker-compose exec server npx prisma db seed
 ```
 
@@ -191,6 +192,12 @@ recruitment-quiz-system/
 ├── docker-compose.yml          # Development Docker Compose
 ├── docker-compose.prod.yml     # Production Docker Compose
 ├── package.json                # Root package.json with scripts
+├── README.md                   # This file
+├── docs/                       # Documentation
+│   ├── ARCHITECTURE.md         # System architecture details
+│   ├── DEPLOYMENT.md           # Deployment guide
+│   ├── AIRGAP_DEPLOY.md        # Offline deployment guide
+│   └── TESTS.md                # Testing documentation
 ├── server/
 │   ├── Dockerfile              # Production server image
 │   ├── Dockerfile.dev          # Development server image
@@ -200,8 +207,13 @@ recruitment-quiz-system/
 │   ├── routes/
 │   │   ├── auth.js            # Authentication routes
 │   │   ├── candidates.js      # Candidate management
+│   │   ├── departments.js     # Department management
+│   │   ├── positions.js       # Position management
 │   │   ├── questions.js       # Question bank
-│   │   ├── quizzes.js         # Quiz taking interface
+│   │   ├── quizzes.js         # Quiz configuration
+│   │   ├── sessions.js        # Session management
+│   │   ├── quiz-sessions.js   # Quiz taking flow
+│   │   ├── grading.js         # Manual grading
 │   │   └── dashboard.js       # Stats and results
 │   ├── middleware/
 │   │   └── auth.js            # JWT authentication
@@ -215,6 +227,8 @@ recruitment-quiz-system/
     ├── package.json
     ├── vite.config.js
     ├── tailwind.config.js
+    ├── public/
+    │   └── fonts/            # Local font files
     └── src/
         ├── App.jsx
         ├── main.jsx
@@ -226,7 +240,7 @@ recruitment-quiz-system/
         ├── components/
         │   ├── layouts/
         │   ├── modals/
-        │   └── ProtectedRoute.jsx
+        │   └── quiz/          # Quiz-specific components
         └── pages/
             ├── admin/         # Admin portal pages
             └── quiz/          # Quiz interface pages
@@ -237,16 +251,18 @@ recruitment-quiz-system/
 ### Models
 
 **Admin**: System administrators
-- id, username, password (hashed)
+- id, username (unique), password (hashed), isDefaultPassword
 
 **Department**: Organizational departments
-- id, name, createdAt, updatedAt
+- id, name (unique), createdAt, updatedAt
 
 **Position**: Positions within departments (belongs to Department)
 - id, name, departmentId, createdAt, updatedAt
+- Unique constraint on (name, departmentId) to prevent duplicates
 
 **Candidate**: Job candidates
 - id, name, phoneNumber, email, departmentId, positionId, notes, createdAt, updatedAt
+- Unique constraint on (name, phoneNumber) to prevent duplicates
 
 **Session**: Quiz sessions (group of quizzes with time limit)
 - id, name, description, timeLimit, createdAt, updatedAt
@@ -255,19 +271,22 @@ recruitment-quiz-system/
 - id, name, description, category, questionCount, createdAt, updatedAt
 
 **SessionQuiz**: Junction table linking sessions to quizzes
-- id, sessionId, quizId, order
+- id, sessionId (FK), quizId (FK), order
+- Unique constraint on (sessionId, quizId)
 
 **Question**: Question bank
-- id, questionText, type, category, difficulty, codeSnippet, explanation, createdAt, updatedAt
+- id, questionText (unique), type, category, difficulty, codeSnippet, createdAt, updatedAt
+- Unique constraint on questionText to prevent duplicates
 
 **Choice**: Answer choices for multiple choice questions
-- id, questionId, choiceText, isCorrect
+- id, questionId (FK), choiceText, isCorrect
 
 **CandidateSession**: Candidate's assigned sessions with progress
-- id, candidateId, sessionId, currentQuizIndex, startedAt, completedAt, status, timeRemaining, score
+- id, candidateId (FK), sessionId (FK), currentQuizIndex, startedAt, completedAt, status, timeRemaining
+- Unique constraint on (candidateId, sessionId)
 
 **Answer**: Candidate answers
-- id, candidateSessionId, questionId, selectedChoiceId, textAnswer, isCorrect
+- id, candidateSessionId (FK), questionId (FK), selectedChoiceId, textAnswer, isCorrect, score, isGraded
 
 ## Sample Questions Included
 
