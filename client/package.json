@@ -12,6 +12,8 @@
     "test:ui": "HOST=127.0.0.1 vitest --ui"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/manrope": "^5.2.8",
     "lucide-react": "^0.294.0",
     "papaparse": "^5.5.3",
     "react": "^18.2.0",
