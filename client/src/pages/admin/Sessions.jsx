@@ -91,8 +91,8 @@ export default function Sessions() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="page-title">Quiz Sessions</h1>
-          <p className="page-subtitle">Create and manage quiz sessions.</p>
+          <h1 className="section-title">Session library</h1>
+          <p className="mt-1 text-sm text-soft">Search, edit, and arrange reusable assessment sessions.</p>
         </div>
         <button 
           onClick={handleAdd}

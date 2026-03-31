@@ -80,8 +80,8 @@ export default function Quizzes() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="page-title">Quizzes</h1>
-          <p className="page-subtitle">Manage individual quizzes.</p>
+          <h1 className="section-title">Quiz library</h1>
+          <p className="mt-1 text-sm text-soft">Manage reusable quiz sections and their question mix.</p>
         </div>
         <button 
           onClick={handleAdd}

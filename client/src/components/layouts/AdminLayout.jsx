@@ -18,7 +18,7 @@ import {
   EyeOff,
   User,
 } from 'lucide-react'
-import { useMemo, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '../../hooks/useAuthStore.js'
 import { authApi } from '../../utils/api.js'
 import ThemeToggle from '../ThemeToggle.jsx'
@@ -166,11 +166,6 @@ export default function AdminLayout() {
     }
   }, [isDefaultPassword])
 
-  const activeItem = useMemo(
-    () => navItems.find(item => location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path))),
-    [location.pathname]
-  )
-
   const handleLogout = () => {
     logout()
     navigate('/admin/login')
@@ -250,6 +245,8 @@ export default function AdminLayout() {
           </nav>
 
           <div className="space-y-3 border-t border-app pt-5">
+            {isDefaultPassword && <span className="status-pill-warning">Security action required</span>}
+            <ThemeToggle />
             <div className="rounded-2xl bg-muted p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-faint">Signed in</p>
               <p className="mt-2 font-semibold text-app">{user?.username || 'Administrator'}</p>
@@ -267,24 +264,13 @@ export default function AdminLayout() {
         <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" onClick={() => setMobileMenuOpen(false)} />
       )}
 
-      <div className="flex flex-1 min-h-0 flex-col p-4 lg:h-full lg:p-0 lg:pr-1">
-        <header className="card mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <button type="button" onClick={() => setMobileMenuOpen(true)} className="btn-secondary btn lg:hidden">
-              <Menu size={18} />
-            </button>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-faint">Admin workspace</p>
-              <h2 className="mt-2 text-2xl font-bold text-app">{activeItem?.label || 'Dashboard'}</h2>
-              <p className="mt-1 text-sm text-soft">Fast, structured review for candidate assessments.</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            {isDefaultPassword && <span className="status-pill-warning">Security action required</span>}
-            <ThemeToggle />
-          </div>
-        </header>
+      <div className="flex flex-1 min-h-0 flex-col p-4 lg:h-full lg:pt-4 lg:pr-1">
+        <div className="mb-4 lg:hidden">
+          <button type="button" onClick={() => setMobileMenuOpen(true)} className="btn-secondary btn">
+            <Menu size={18} />
+            Menu
+          </button>
+        </div>
 
         <main className="min-h-0 flex-1 overflow-hidden">
           <Outlet />

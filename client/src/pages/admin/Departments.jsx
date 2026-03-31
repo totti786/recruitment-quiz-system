@@ -79,8 +79,8 @@ export default function Departments() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="page-title">Departments</h1>
-          <p className="page-subtitle">Manage departments and organizational structure.</p>
+          <h1 className="section-title">Departments</h1>
+          <p className="mt-1 text-sm text-soft">Keep the review structure aligned with the organization.</p>
         </div>
         <button 
           onClick={handleAdd}

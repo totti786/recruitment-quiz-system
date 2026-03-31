@@ -68,8 +68,8 @@ export default function Results() {
     <div className="flex h-full min-h-0 flex-col overflow-y-auto pr-1">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="page-title">Results</h1>
-          <p className="page-subtitle">View and analyze quiz results.</p>
+          <h1 className="section-title">Review queue</h1>
+          <p className="mt-1 text-sm text-soft">Search submitted assessments and jump into grading.</p>
         </div>
         <button 
           onClick={handleExport}
