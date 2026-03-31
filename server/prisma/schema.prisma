@@ -19,7 +19,7 @@ model Admin {
 
 model Department {
   id          Int         @id @default(autoincrement())
-  name        String
+  name        String      @unique
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   positions   Position[]
@@ -35,6 +35,7 @@ model Position {
   updatedAt     DateTime    @updatedAt
   candidates    Candidate[]
 
+  @@unique([name, departmentId])
   @@index([departmentId])
 }
 
@@ -52,6 +53,7 @@ model Candidate {
   updatedAt       DateTime          @updatedAt
   sessions        CandidateSession[]
 
+  @@unique([name, phoneNumber])
   @@index([departmentId])
   @@index([positionId])
 }
@@ -110,7 +112,7 @@ model CandidateSession {
 
 model Question {
   id           Int            @id @default(autoincrement())
-  questionText String
+  questionText String         @unique
   type         String         // MULTIPLE_CHOICE, SHORT_ANSWER, CODE
   category     String
   difficulty   String         // EASY, MEDIUM, HARD

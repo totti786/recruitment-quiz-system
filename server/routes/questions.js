@@ -109,6 +109,9 @@ router.post('/', authenticateToken, [
     res.status(201).json(question)
   } catch (error) {
     console.error('Create question error:', error)
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'A question with this text already exists' })
+    }
     res.status(500).json({ error: 'Server error' })
   }
 })

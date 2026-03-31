@@ -186,6 +186,9 @@ router.post('/', authenticateToken, [
     res.status(201).json(candidate)
   } catch (error) {
     console.error('Create candidate error:', error)
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'A candidate with this name and phone number already exists' })
+    }
     res.status(500).json({ error: 'Server error' })
   }
 })

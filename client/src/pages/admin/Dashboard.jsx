@@ -100,7 +100,7 @@ export default function Dashboard() {
             <span className="status-pill-info">{totalCategoryQuestions} total</span>
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 max-h-64 overflow-y-auto space-y-4 pr-2">
             {stats.questionsByCategory.map(category => {
               const percentage = totalCategoryQuestions ? (category.count / totalCategoryQuestions) * 100 : 0
               return (
