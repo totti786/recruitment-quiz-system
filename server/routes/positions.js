@@ -155,8 +155,22 @@ router.put('/:id', authenticateToken, [
 // Delete position
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
+    const positionId = parseInt(req.params.id)
+
+    // Check if position has candidates
+    const candidatesCount = await prisma.candidate.count({
+      where: { positionId }
+    })
+
+    if (candidatesCount > 0) {
+      return res.status(400).json({
+        error: 'Cannot delete position',
+        message: `This position has ${candidatesCount} candidate(s) assigned. Please reassign or remove candidates first.`
+      })
+    }
+
     await prisma.position.delete({
-      where: { id: parseInt(req.params.id) }
+      where: { id: positionId }
     })
 
     res.json({ message: 'Position deleted successfully' })

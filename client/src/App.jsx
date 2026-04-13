@@ -1,7 +1,8 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthStore } from './hooks/useAuthStore.js'
 import { useThemeStore } from './hooks/useThemeStore.js'
+import { setAuthErrorHandler } from './utils/api.js'
 
 // Layouts
 import AdminLayout from './components/layouts/AdminLayout.jsx'
@@ -33,12 +34,23 @@ import ToastContainer from './components/Toast.jsx'
 
 function App() {
   const checkAuth = useAuthStore(state => state.checkAuth)
+  const logout = useAuthStore(state => state.logout)
   const initializeTheme = useThemeStore(state => state.initializeTheme)
+  const navigate = useNavigate()
   
   useEffect(() => {
     checkAuth()
     initializeTheme()
   }, [checkAuth, initializeTheme])
+
+  useEffect(() => {
+    setAuthErrorHandler((status, payload) => {
+      if (status === 401 || status === 403) {
+        logout()
+        navigate('/admin/login', { replace: true })
+      }
+    })
+  }, [logout, navigate])
 
   return (
     <ErrorBoundary>

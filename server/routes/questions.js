@@ -175,8 +175,25 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // Delete question
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    await prisma.question.delete({
-      where: { id: parseInt(req.params.id) }
+    const questionId = parseInt(req.params.id)
+
+    // Check if question exists
+    const question = await prisma.question.findUnique({
+      where: { id: questionId }
+    })
+
+    if (!question) {
+      return res.status(404).json({ error: 'Question not found' })
+    }
+
+    // Use a transaction to delete all related records first, then the question
+    await prisma.$transaction(async (tx) => {
+      // Delete all answers for this question
+      await tx.answer.deleteMany({ where: { questionId } })
+      // Delete all choices for this question
+      await tx.choice.deleteMany({ where: { questionId } })
+      // Delete the question
+      await tx.question.delete({ where: { id: questionId } })
     })
 
     res.json({ message: 'Question deleted successfully' })

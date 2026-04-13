@@ -148,6 +148,6 @@ model Answer {
   gradedBy         String?          // Who graded the answer
   answeredAt       DateTime         @default(now())
   candidateSession CandidateSession @relation(fields: [candidateSessionId], references: [id], onDelete: Cascade)
-  selectedChoice   Choice?          @relation(fields: [selectedChoiceId], references: [id])
-  question         Question         @relation(fields: [questionId], references: [id])
+  selectedChoice   Choice?          @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
+  question         Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }

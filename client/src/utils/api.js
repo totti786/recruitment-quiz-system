@@ -1,5 +1,16 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
+// Global handler for 401/403 auth errors — set via setAuthErrorHandler
+let _authErrorHandler = null
+
+export function setAuthErrorHandler(handler) {
+  _authErrorHandler = handler
+}
+
+export function isAuthError(status) {
+  return status === 401 || status === 403
+}
+
 export class ApiError extends Error {
   constructor(message, status, details = null) {
     super(message)
@@ -62,6 +73,9 @@ async function request(url, options = {}) {
 
   if (!response.ok) {
     const payload = await parseErrorResponse(response)
+    if (_authErrorHandler && isAuthError(response.status)) {
+      _authErrorHandler(response.status, payload)
+    }
     throw new ApiError(
       payload.error || payload.message || 'Request failed',
       response.status,
@@ -89,6 +103,9 @@ async function requestBlob(url, options = {}) {
 
   if (!response.ok) {
     const payload = await parseErrorResponse(response)
+    if (_authErrorHandler && isAuthError(response.status)) {
+      _authErrorHandler(response.status, payload)
+    }
     throw new ApiError(
       payload.error || payload.message || 'Request failed',
       response.status,
