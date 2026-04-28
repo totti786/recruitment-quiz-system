@@ -9,3 +9,4 @@ coverage/
 *.db-journal
 .vscode/
 .idea/
+.qwen/

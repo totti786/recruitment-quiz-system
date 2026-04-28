@@ -19,7 +19,7 @@ services:
       - ./server:/app
       - server-node-modules:/app/node_modules
       - server-data:/app/prisma
-    command: sh -c "npx prisma generate && npx prisma db push && npm run dev"
+    command: sh -c "npx prisma generate && npm run dev"
     networks:
       - quiz-network
 

@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx *)",
-      "Bash(docker exec *)"
-    ]
-  },
-  "$version": 3
-}
