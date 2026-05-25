@@ -100,13 +100,15 @@ model CandidateSession {
   completedAt     DateTime?
   status          String       @default("ACTIVE")
   timeRemaining   Int          // in seconds
+  tabSwitchCount  Int          @default(0)
   isFullyGraded   Boolean      @default(false)  // Whether all answers have been graded
   gradedAt        DateTime?    // When the session was fully graded
   gradedBy        String?      // Who completed the grading
   candidate       Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   session         Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   answers         Answer[]
-  
+  events          SessionEvent[]
+
   @@unique([candidateId, sessionId])
 }
 
@@ -149,5 +151,17 @@ model Answer {
   answeredAt       DateTime         @default(now())
   candidateSession CandidateSession @relation(fields: [candidateSessionId], references: [id], onDelete: Cascade)
   selectedChoice   Choice?          @relation(fields: [selectedChoiceId], references: [id], onDelete: SetNull)
-  question         Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+   question         Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model SessionEvent {
+  id                 Int      @id @default(autoincrement())
+  candidateSessionId Int
+  eventType          String   // TAB_SWITCH | REFRESH | FULLSCREEN_EXIT
+  metadata           String?  // Optional JSON string with event context
+  createdAt          DateTime @default(now())
+
+  candidateSession   CandidateSession @relation(fields: [candidateSessionId], references: [id], onDelete: Cascade)
+
+  @@index([candidateSessionId])
 }
