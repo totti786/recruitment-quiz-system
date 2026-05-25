@@ -113,6 +113,15 @@ jobs:
 
       - name: Test Docker containers
         run: |
+          mkdir -p /opt/recruitment-quiz
+          cat > /opt/recruitment-quiz/server.env <<EOF
+          DATABASE_URL=file:./dev.db
+          JWT_SECRET=test-secret
+          ADMIN_USERNAME=admin
+          ADMIN_PASSWORD=admin123
+          NODE_ENV=production
+          PORT=3001
+          EOF
           docker compose -f docker-compose.prod.yml up -d
           sleep 10
           docker compose -f docker-compose.prod.yml ps
