@@ -1,0 +1,29 @@
+app: recruitment-quiz
+env: production
+domain: nextrum-sy.com
+version: latest
+
+volumes:
+  - quiz-db-data
+
+services:
+  server:
+    image: registry.nextrum-sy.com/recruitment-quiz-server:latest
+    placement: worker
+    env:
+      DATABASE_URL: "file:./dev.db"
+      JWT_SECRET: "xVb+LkqUs7SavBr2kqa7OF0ST6Fj5rBJ0eVR8MlimWNe2pJERNOsFiIA8rArGRpS"
+      ADMIN_USERNAME: "admin"
+      ADMIN_PASSWORD: "Rgh3cEFsV7uPI/lL+MMbrU+PA4Gx6+FB"
+      CORS_ORIGIN: "https://quiz.nextrum-sy.com"
+      NODE_ENV: "production"
+      PORT: "3001"
+    volumes:
+      - quiz-db-data:/app/prisma
+
+  client:
+    image: registry.nextrum-sy.com/recruitment-quiz-client:latest
+    placement: worker
+    expose:
+      port: 80
+      host: quiz.nextrum-sy.com
