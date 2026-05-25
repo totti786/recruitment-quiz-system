@@ -149,7 +149,8 @@ router.get('/results', authenticateToken, async (req, res) => {
         completedAt: session.completedAt,
         timeTaken: session.completedAt 
           ? Math.round((new Date(session.completedAt) - new Date(session.startedAt)) / 1000 / 60)
-          : null
+          : null,
+        tabSwitchCount: session.tabSwitchCount || 0
       }
     })
 
@@ -195,6 +196,12 @@ router.get('/results/:sessionId', authenticateToken, async (req, res) => {
             },
             selectedChoice: true
           }
+        },
+        events: {
+          orderBy: {
+            createdAt: 'desc'
+          },
+          take: 50
         }
       }
     })
@@ -334,7 +341,14 @@ router.get('/results/:sessionId', authenticateToken, async (req, res) => {
         startedAt: session.startedAt,
         completedAt: session.completedAt,
         timeTaken,
-        totalQuizzes: session.session.quizzes.length
+        totalQuizzes: session.session.quizzes.length,
+        tabSwitchCount: session.tabSwitchCount || 0,
+        sessionEvents: (session.events || []).map(e => ({
+          id: e.id,
+          eventType: e.eventType,
+          metadata: e.metadata ? JSON.parse(e.metadata) : null,
+          createdAt: e.createdAt
+        }))
       },
       quizzes
     })

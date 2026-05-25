@@ -248,6 +248,11 @@ export const quizSessionsApi = {
     auth: 'quiz',
     body: JSON.stringify({ candidateSessionId }),
   }),
+  logEvent: (candidateSessionId, eventType, metadata = {}) => request(`/quiz-sessions/session/${candidateSessionId}/events`, {
+    method: 'POST',
+    auth: 'quiz',
+    body: JSON.stringify({ eventType, metadata }),
+  }),
 }
 
 export const questionsApi = {

@@ -304,6 +304,60 @@ export default function ResultDetail() {
         </div>
       )}
 
+      {/* Anti-Cheat Section */}
+      {quiz.tabSwitchCount > 0 || (quiz.sessionEvents && quiz.sessionEvents.length > 0) ? (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle size={20} className={quiz.tabSwitchCount >= 3 ? 'text-[var(--danger)]' : quiz.tabSwitchCount > 0 ? 'text-[var(--warning)]' : 'text-soft'} />
+            <h2 className="section-title mb-0">Security & Events</h2>
+          </div>
+
+          {/* Tab Switch Count */}
+          <div className="flex items-center justify-between border-b border-app pb-3 mb-3">
+            <span className="text-sm font-medium text-app">Tab switches</span>
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+              quiz.tabSwitchCount === 0
+                ? 'bg-[var(--success-soft)] text-[var(--success)]'
+                : quiz.tabSwitchCount < 3
+                ? 'bg-[var(--warning-soft)] text-[var(--warning)]'
+                : 'bg-[var(--danger-soft)] text-[var(--danger)]'
+            }`}>
+              {quiz.tabSwitchCount === 0 ? 'None' : `${quiz.tabSwitchCount} switch${quiz.tabSwitchCount !== 1 ? 'es' : ''}`}
+            </span>
+          </div>
+
+          {/* Events Timeline */}
+          {quiz.sessionEvents && quiz.sessionEvents.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-faint mb-2">Event Timeline</p>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {quiz.sessionEvents.map(event => (
+                  <div key={event.id} className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block w-2 h-2 rounded-full ${
+                        event.eventType === 'TAB_SWITCH' ? 'bg-[var(--warning)]' :
+                        event.eventType === 'FULLSCREEN_EXIT' ? 'bg-[var(--danger)]' :
+                        'bg-[var(--primary)]'
+                      }`} />
+                      <span className="font-medium text-app">{event.eventType.replace(/_/g, ' ')}</span>
+                      {event.metadata?.returnedAfterMs && (
+                        <span className="text-xs text-soft">({Math.round(event.metadata.returnedAfterMs / 1000)}s away)</span>
+                      )}
+                      {event.metadata?.reEntryAttempted && (
+                        <span className="text-xs text-soft">(re-entry attempted)</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-soft">
+                      {new Date(event.createdAt).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {/* Quizzes Section */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">

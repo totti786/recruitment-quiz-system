@@ -156,20 +156,39 @@ export default function QuizInterface() {
   }, [])
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    let hiddenTime = null
+
+    const handleVisibilityChange = async () => {
       if (document.hidden) {
-        setTabSwitchCount(prev => prev + 1)
+        hiddenTime = Date.now()
+      } else if (candidateSessionId && hiddenTime) {
+        const awayMs = Date.now() - hiddenTime
+        hiddenTime = null
+
+        try {
+          const result = await quizSessionsApi.logEvent(
+            candidateSessionId,
+            'TAB_SWITCH',
+            { returnedAfterMs: awayMs }
+          )
+          setTabSwitchCount(result.tabSwitchCount)
+        } catch (err) {
+          // Silently retry — don't disrupt the quiz
+        }
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [])
+  }, [candidateSessionId])
 
   useEffect(() => {
     if (!sessionData || submitting) return
 
     const handleBeforeUnload = (event) => {
+      if (candidateSessionId) {
+        quizSessionsApi.logEvent(candidateSessionId, 'REFRESH', { url: window.location.href }).catch(() => {})
+      }
       event.preventDefault()
       event.returnValue = ''
     }
@@ -191,7 +210,7 @@ export default function QuizInterface() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [sessionData, submitting])
+  }, [sessionData, submitting, candidateSessionId])
 
   useEffect(() => {
     if (tabSwitchCount >= 3) {
@@ -205,6 +224,37 @@ export default function QuizInterface() {
       })
     }
   }, [tabSwitchCount])
+
+  useEffect(() => {
+    if (!sessionData || !candidateSessionId) return
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        quizSessionsApi.logEvent(candidateSessionId, 'FULLSCREEN_EXIT', { reEntryAttempted: true }).catch(() => {})
+        document.documentElement.requestFullscreen().catch(() => {
+          // Browser may block fullscreen re-request
+        })
+      }
+    }
+
+    const requestFullscreen = async () => {
+      try {
+        await document.documentElement.requestFullscreen()
+      } catch (err) {
+        // Fullscreen may be blocked by browser policy
+      }
+    }
+
+    requestFullscreen()
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {})
+      }
+    }
+  }, [sessionData, candidateSessionId])
 
   const question = questions[currentQuestion]
   const totalQuizzes = sessionData?.totalQuizzes || 1
@@ -339,7 +389,12 @@ export default function QuizInterface() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl select-none">
+    <div
+      className="mx-auto max-w-3xl select-none"
+      onCopy={(e) => e.preventDefault()}
+      onPaste={(e) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <section className="card mb-4 p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>

@@ -476,4 +476,63 @@ router.post('/submit', [
   }
 })
 
+// Log anti-cheat event
+router.post('/:candidateSessionId/events', [
+  body('eventType').isString().trim().isIn(['TAB_SWITCH', 'REFRESH', 'FULLSCREEN_EXIT']),
+  body('metadata').optional().isObject()
+], authenticateQuizToken, async (req, res) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: getValidationErrorMessage(errors.array()),
+      errors: errors.array()
+    })
+  }
+
+  const candidateSessionId = Number.parseInt(String(req.params.candidateSessionId), 10)
+  const { eventType, metadata } = req.body
+
+  try {
+    if (!sameIdentifier(req.candidateSessionId, candidateSessionId)) {
+      return res.status(403).json({ error: 'Session token does not match request' })
+    }
+
+    const candidateSession = await prisma.candidateSession.findUnique({
+      where: { id: candidateSessionId }
+    })
+
+    if (!candidateSession) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    if (candidateSession.status !== 'ACTIVE') {
+      return res.status(409).json({ error: 'Session is no longer active' })
+    }
+
+    // Create the event log entry
+    await prisma.sessionEvent.create({
+      data: {
+        candidateSessionId,
+        eventType,
+        metadata: metadata ? JSON.stringify(metadata) : null
+      }
+    })
+
+    // Increment tab switch count if applicable
+    let updatedCount = candidateSession.tabSwitchCount || 0
+    if (eventType === 'TAB_SWITCH') {
+      const updated = await prisma.candidateSession.update({
+        where: { id: candidateSessionId },
+        data: { tabSwitchCount: { increment: 1 } }
+      })
+      updatedCount = updated.tabSwitchCount
+    }
+
+    res.json({ success: true, tabSwitchCount: updatedCount })
+  } catch (error) {
+    console.error('Log event error:', error)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 export default router
