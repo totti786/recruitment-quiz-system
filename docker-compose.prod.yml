@@ -3,6 +3,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+    image: recruitment-quiz-server:latest
     container_name: quiz-server-prod
     ports:
       - "3001:3001"
@@ -20,6 +21,7 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+    image: recruitment-quiz-client:latest
     container_name: quiz-client-prod
     ports:
       - "80:80"
