@@ -22,6 +22,7 @@ export default function Login() {
       const response = await authApi.login(credentials.username, credentials.password)
       login(response.token, { 
         username: response.username,
+        role: response.role,
         isDefaultPassword: response.isDefaultPassword 
       })
       navigate('/admin')

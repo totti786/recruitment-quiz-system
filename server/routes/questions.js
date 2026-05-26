@@ -1,17 +1,22 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, requireRole } from '../middleware/auth.js'
 import { getValidationErrorMessage } from '../lib/http.js'
+import { departmentFilter } from '../lib/scope.js'
 
 const router = express.Router()
 
+router.use(authenticateToken, requireRole('SUPER_ADMIN', 'ADMIN'))
+
 // Get all questions
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { category, difficulty, type } = req.query
     
-    let whereClause = {}
+    let whereClause = {
+      ...departmentFilter(req),
+    }
     if (category) whereClause.category = category
     if (difficulty) whereClause.difficulty = difficulty
     if (type) whereClause.type = type
@@ -31,10 +36,13 @@ router.get('/', authenticateToken, async (req, res) => {
 })
 
 // Get categories
-router.get('/categories', authenticateToken, async (req, res) => {
+router.get('/categories', async (req, res) => {
   try {
     const categories = await prisma.question.groupBy({
-      by: ['category']
+      by: ['category'],
+      where: {
+        ...departmentFilter(req),
+      }
     })
     res.json(categories.map(c => c.category))
   } catch (error) {
@@ -44,10 +52,13 @@ router.get('/categories', authenticateToken, async (req, res) => {
 })
 
 // Get single question
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const question = await prisma.question.findUnique({
-      where: { id: parseInt(req.params.id) },
+    const question = await prisma.question.findFirst({
+      where: {
+        id: parseInt(req.params.id),
+        ...departmentFilter(req)
+      },
       include: { choices: true }
     })
 
@@ -63,7 +74,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 })
 
 // Create question
-router.post('/', authenticateToken, [
+router.post('/', [
   body('questionText').notEmpty().trim(),
   body('type').isIn(['MULTIPLE_CHOICE', 'SHORT_ANSWER', 'CODE']),
   body('category').notEmpty().trim(),
@@ -92,6 +103,10 @@ router.post('/', authenticateToken, [
       }
     }
 
+    const departmentId = req.userRole === 'SUPER_ADMIN'
+      ? parseInt(req.body.departmentId)
+      : req.departmentIds[0]
+
     const question = await prisma.question.create({
       data: {
         questionText,
@@ -99,6 +114,7 @@ router.post('/', authenticateToken, [
         category,
         difficulty,
         codeSnippet,
+        departmentId,
         choices: type === 'MULTIPLE_CHOICE' && choices ? {
           create: choices
         } : undefined
@@ -117,7 +133,7 @@ router.post('/', authenticateToken, [
 })
 
 // Update question
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', async (req, res) => {
   const { questionText, type, category, difficulty, codeSnippet, choices } = req.body
 
   try {
@@ -173,7 +189,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 })
 
 // Delete question
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const questionId = parseInt(req.params.id)
 
@@ -204,7 +220,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 })
 
 // Import questions from CSV
-router.post('/import', authenticateToken, async (req, res) => {
+router.post('/import', async (req, res) => {
   try {
     const { questions } = req.body
 
@@ -228,12 +244,17 @@ router.post('/import', authenticateToken, async (req, res) => {
         }
 
         // Create question with choices if applicable
+        const departmentId = req.userRole === 'SUPER_ADMIN'
+          ? (q.departmentId ? parseInt(q.departmentId) : undefined)
+          : req.departmentIds[0]
+
         const questionData = {
           questionText: q.questionText,
           type: q.type,
           category: q.category,
           difficulty: q.difficulty,
-          codeSnippet: q.codeSnippet || null
+          codeSnippet: q.codeSnippet || null,
+          departmentId
         }
 
         if (q.type === 'MULTIPLE_CHOICE' && q.choices && q.choices.length > 0) {

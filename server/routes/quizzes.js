@@ -1,15 +1,34 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, requireRole } from '../middleware/auth.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { departmentFilter } from '../lib/scope.js'
 
 const router = express.Router()
 
-// Get all quizzes
-router.get('/', authenticateToken, async (req, res) => {
+// Public endpoint for quiz portal - no auth required
+router.get('/public', async (req, res) => {
   try {
     const quizzes = await prisma.quiz.findMany({
+      orderBy: { name: 'asc' }
+    })
+    res.json(quizzes)
+  } catch (error) {
+    console.error('Get public quizzes error:', error)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+router.use(authenticateToken, requireRole('SUPER_ADMIN', 'ADMIN'))
+
+// Get all quizzes
+router.get('/', async (req, res) => {
+  try {
+    const quizzes = await prisma.quiz.findMany({
+      where: {
+        ...departmentFilter(req),
+      },
       include: {
         sessionQuizzes: {
           include: {
@@ -31,24 +50,14 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 })
 
-// Get all quizzes (public endpoint for quiz portal)
-router.get('/public', async (req, res) => {
-  try {
-    const quizzes = await prisma.quiz.findMany({
-      orderBy: { name: 'asc' }
-    })
-    res.json(quizzes)
-  } catch (error) {
-    console.error('Get public quizzes error:', error)
-    res.status(500).json({ error: 'Server error' })
-  }
-})
-
 // Get single quiz
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const quiz = await prisma.quiz.findUnique({
-      where: { id: parseInt(req.params.id) },
+    const quiz = await prisma.quiz.findFirst({
+      where: {
+        id: parseInt(req.params.id),
+        ...departmentFilter(req)
+      },
       include: {
         sessionQuizzes: {
           include: {
@@ -70,7 +79,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 })
 
 // Create quiz
-router.post('/', authenticateToken, [
+router.post('/', [
   body('name').notEmpty().trim(),
   body('description').optional().trim(),
   body('category').notEmpty().trim(),
@@ -101,7 +110,7 @@ router.post('/', authenticateToken, [
 })
 
 // Update quiz
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const quiz = await prisma.quiz.update({
       where: { id: parseInt(req.params.id) },
@@ -116,7 +125,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 })
 
 // Delete quiz
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     await prisma.quiz.delete({
       where: { id: parseInt(req.params.id) }

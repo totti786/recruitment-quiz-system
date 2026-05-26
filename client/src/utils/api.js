@@ -301,3 +301,23 @@ export const gradingApi = {
     body: JSON.stringify({ grades }),
   }),
 }
+
+export const adminApi = {
+  getAll: () => request('/admins'),
+  getById: (id) => request(`/admins/${id}`),
+  create: (data) => request('/admins', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/admins/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id) => request(`/admins/${id}`, { method: 'DELETE' }),
+}
+
+export const auditApi = {
+  getLog: (params = {}) => {
+    const query = new URLSearchParams()
+    if (params.page) query.set('page', params.page)
+    if (params.limit) query.set('limit', params.limit)
+    if (params.entityType) query.set('entityType', params.entityType)
+    if (params.action) query.set('action', params.action)
+    const suffix = query.toString() ? `?${query}` : ''
+    return request(`/audit${suffix}`)
+  },
+}

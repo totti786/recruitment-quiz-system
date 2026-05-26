@@ -1,13 +1,15 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, requireRole } from '../middleware/auth.js'
 import { getValidationErrorMessage } from '../lib/http.js'
 
 const router = express.Router()
 
+router.use(authenticateToken, requireRole('SUPER_ADMIN'))
+
 // Get all departments with their positions
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const departments = await prisma.department.findMany({
       include: {
@@ -26,7 +28,7 @@ router.get('/', authenticateToken, async (req, res) => {
 })
 
 // Get single department
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const department = await prisma.department.findUnique({
       where: { id: parseInt(req.params.id) },
@@ -52,7 +54,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 })
 
 // Create department
-router.post('/', authenticateToken, [
+router.post('/', [
   body('name').notEmpty().trim()
 ], async (req, res) => {
   const errors = validationResult(req)
@@ -91,7 +93,7 @@ router.post('/', authenticateToken, [
 })
 
 // Update department
-router.put('/:id', authenticateToken, [
+router.put('/:id', [
   body('name').notEmpty().trim()
 ], async (req, res) => {
   const errors = validationResult(req)
@@ -131,7 +133,7 @@ router.put('/:id', authenticateToken, [
 })
 
 // Delete department
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const departmentId = parseInt(req.params.id)
     
@@ -165,7 +167,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 })
 
 // Get positions for a department
-router.get('/:id/positions', authenticateToken, async (req, res) => {
+router.get('/:id/positions', async (req, res) => {
   try {
     const positions = await prisma.position.findMany({
       where: { departmentId: parseInt(req.params.id) },

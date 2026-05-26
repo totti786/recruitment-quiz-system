@@ -9,12 +9,24 @@ datasource db {
 }
 
 model Admin {
-  id               Int      @id @default(autoincrement())
-  username         String   @unique
-  password         String
-  isDefaultPassword Boolean @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  username          String   @unique
+  password          String
+  isDefaultPassword Boolean  @default(true)
+  role              String   @default("ADMIN")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  departments       AdminDepartment[]
+  auditLogs         AuditLog[]
+}
+
+model AdminDepartment {
+  adminId      Int
+  departmentId Int
+  admin        Admin      @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([adminId, departmentId])
 }
 
 model Department {
@@ -24,6 +36,10 @@ model Department {
   updatedAt   DateTime    @updatedAt
   positions   Position[]
   candidates  Candidate[]
+  questions   Question[]
+  quizzes     Quiz[]
+  sessions    Session[]
+  admins      AdminDepartment[]
 }
 
 model Position {
@@ -66,7 +82,11 @@ model Quiz {
   questionCount Int          @default(10)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+  departmentId Int
+  department   Department    @relation(fields: [departmentId], references: [id])
   sessionQuizzes SessionQuiz[]
+
+  @@index([departmentId])
 }
 
 model Session {
@@ -76,8 +96,12 @@ model Session {
   timeLimit   Int            @default(60)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+  departmentId Int
+  department   Department    @relation(fields: [departmentId], references: [id])
   quizzes     SessionQuiz[]
   candidateSessions CandidateSession[]
+
+  @@index([departmentId])
 }
 
 model SessionQuiz {
@@ -121,8 +145,12 @@ model Question {
   codeSnippet  String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  departmentId Int
+  department   Department     @relation(fields: [departmentId], references: [id])
   choices      Choice[]
   answers      Answer[]
+
+  @@index([departmentId])
 }
 
 model Choice {
@@ -164,4 +192,22 @@ model SessionEvent {
   candidateSession   CandidateSession @relation(fields: [candidateSessionId], references: [id], onDelete: Cascade)
 
   @@index([candidateSessionId])
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorId    Int
+  actor      Admin    @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String
+  entityId   Int?
+  oldValue   String?
+  newValue   String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+  @@index([entityType, entityId])
 }

@@ -1,48 +1,13 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, requireRole } from '../middleware/auth.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { departmentFilter } from '../lib/scope.js'
 
 const router = express.Router()
 
-// Get all candidates with their sessions, department and position
-router.get('/', authenticateToken, async (req, res) => {
-  try {
-    const candidates = await prisma.candidate.findMany({
-      include: {
-        department: true,
-        position: true,
-        sessions: {
-          include: {
-            session: {
-              include: {
-                quizzes: {
-                  include: {
-                    quiz: true
-                  },
-                  orderBy: {
-                    order: 'asc'
-                  }
-                }
-              }
-            }
-          },
-          orderBy: {
-            startedAt: 'desc'
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
-    res.json(candidates)
-  } catch (error) {
-    console.error('Get candidates error:', error)
-    res.status(500).json({ error: 'Server error' })
-  }
-})
-
-// Get candidates with available sessions (for quiz portal)
+// Public: Get candidates with available sessions (for quiz portal) - no auth required
 router.get('/available', async (req, res) => {
   try {
     const candidates = await prisma.candidate.findMany({
@@ -82,11 +47,56 @@ router.get('/available', async (req, res) => {
   }
 })
 
-// Get single candidate
-router.get('/:id', authenticateToken, async (req, res) => {
+// All admin routes require authentication and role gating
+router.use(authenticateToken, requireRole('SUPER_ADMIN', 'ADMIN'))
+
+// Get all candidates with their sessions, department and position
+router.get('/', async (req, res) => {
   try {
-    const candidate = await prisma.candidate.findUnique({
-      where: { id: parseInt(req.params.id) },
+    const candidates = await prisma.candidate.findMany({
+      where: {
+        ...departmentFilter(req),
+      },
+      include: {
+        department: true,
+        position: true,
+        sessions: {
+          include: {
+            session: {
+              include: {
+                quizzes: {
+                  include: {
+                    quiz: true
+                  },
+                  orderBy: {
+                    order: 'asc'
+                  }
+                }
+              }
+            }
+          },
+          orderBy: {
+            startedAt: 'desc'
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+    res.json(candidates)
+  } catch (error) {
+    console.error('Get candidates error:', error)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// Get single candidate
+router.get('/:id', async (req, res) => {
+  try {
+    const candidate = await prisma.candidate.findFirst({
+      where: {
+        id: parseInt(req.params.id),
+        ...departmentFilter(req)
+      },
       include: {
         department: true,
         position: true,
@@ -152,7 +162,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 })
 
 // Create candidate
-router.post('/', authenticateToken, [
+router.post('/', [
   body('name').notEmpty().trim(),
   body('phoneNumber').notEmpty().trim(),
   body('email').optional({ checkFalsy: true }).isEmail(),
@@ -194,7 +204,7 @@ router.post('/', authenticateToken, [
 })
 
 // Update candidate
-router.put('/:id', authenticateToken, [
+router.put('/:id', [
   body('name').optional().trim(),
   body('phoneNumber').optional().trim(),
   body('email').optional({ checkFalsy: true }).isEmail(),
@@ -235,7 +245,7 @@ router.put('/:id', authenticateToken, [
 })
 
 // Delete candidate
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     await prisma.candidate.delete({
       where: { id: parseInt(req.params.id) }
@@ -249,7 +259,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 })
 
 // Assign session to candidate
-router.post('/:id/assign-session', authenticateToken, [
+router.post('/:id/assign-session', [
   body('sessionId').isInt()
 ], async (req, res) => {
   const errors = validationResult(req)

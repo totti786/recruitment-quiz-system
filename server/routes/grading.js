@@ -1,17 +1,24 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, requireRole } from '../middleware/auth.js'
 
 const router = express.Router()
 
+router.use(authenticateToken, requireRole('SUPER_ADMIN', 'ADMIN'))
+
 // Get all sessions that need grading
-router.get('/pending', authenticateToken, async (req, res) => {
+router.get('/pending', async (req, res) => {
   try {
+    const csDeptFilter = req.userRole !== 'SUPER_ADMIN'
+      ? { candidate: { departmentId: { in: req.departmentIds } } }
+      : {}
+
     const sessions = await prisma.candidateSession.findMany({
       where: {
         status: 'COMPLETED',
-        isFullyGraded: false
+        isFullyGraded: false,
+        ...csDeptFilter
       },
       include: {
         candidate: {
@@ -57,12 +64,16 @@ router.get('/pending', authenticateToken, async (req, res) => {
 })
 
 // Get detailed answers for grading a specific session
-router.get('/session/:candidateSessionId', authenticateToken, async (req, res) => {
+router.get('/session/:candidateSessionId', async (req, res) => {
   try {
     const candidateSessionId = parseInt(req.params.candidateSessionId)
     
-    const session = await prisma.candidateSession.findUnique({
-      where: { id: candidateSessionId },
+    const csDeptFilter = req.userRole !== 'SUPER_ADMIN'
+      ? { candidate: { departmentId: { in: req.departmentIds } } }
+      : {}
+
+    const session = await prisma.candidateSession.findFirst({
+      where: { id: candidateSessionId, ...csDeptFilter },
       include: {
         candidate: {
           include: {
@@ -176,7 +187,7 @@ router.get('/session/:candidateSessionId', authenticateToken, async (req, res) =
 })
 
 // Grade a specific answer
-router.post('/answer/:answerId', authenticateToken, [
+router.post('/answer/:answerId', [
   body('score').isFloat({ min: 0, max: 100 }),
   body('maxScore').optional().isInt({ min: 1 }),
   body('gradingNotes').optional().trim()
@@ -246,7 +257,7 @@ router.post('/answer/:answerId', authenticateToken, [
 })
 
 // Batch grade multiple answers
-router.post('/session/:candidateSessionId/batch', authenticateToken, [
+router.post('/session/:candidateSessionId/batch', [
   body('grades').isArray({ min: 1 }),
   body('grades.*.answerId').isInt(),
   body('grades.*.score').isFloat({ min: 0, max: 100 }),

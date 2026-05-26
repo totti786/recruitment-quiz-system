@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 import prisma from '../lib/prisma.js'
 import { SESSION_TOKEN_TYPE } from '../lib/quizSession.js'
+import { auditContext } from '../lib/audit.js'
 
 export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization']
@@ -13,10 +14,34 @@ export const authenticateToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     req.userId = decoded.userId
-    next()
+
+    const admin = await prisma.admin.findUnique({
+      where: { id: decoded.userId },
+      include: {
+        departments: {
+          select: { departmentId: true }
+        }
+      }
+    })
+
+    if (!admin) {
+      return res.status(403).json({ error: 'Admin account not found' })
+    }
+
+    req.userRole = admin.role
+    req.departmentIds = admin.departments.map(d => d.departmentId)
+
+    auditContext.run({ userId: decoded.userId, role: admin.role }, () => next())
   } catch (error) {
     return res.status(403).json({ error: 'Invalid or expired token' })
   }
+}
+
+export const requireRole = (...roles) => (req, res, next) => {
+  if (!req.userRole || !roles.includes(req.userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' })
+  }
+  next()
 }
 
 export const authenticateQuizToken = async (req, res, next) => {

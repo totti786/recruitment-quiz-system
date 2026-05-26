@@ -14,29 +14,74 @@ async function main() {
     update: {
       password: hashedPassword,
       isDefaultPassword: true,
+      role: 'SUPER_ADMIN',
     },
     create: {
       username: adminUsername,
       password: hashedPassword,
       isDefaultPassword: true,
+      role: 'SUPER_ADMIN',
     },
   })
   console.log(`✅ Admin user created (username: ${adminUsername}, password: ${adminPassword})`)
 
-  // Create sample departments
-  const engineeringDept = await prisma.department.create({
-    data: { name: 'Engineering' }
+  // Create sample departments (using upsert for idempotency)
+  const engineeringDept = await prisma.department.upsert({
+    where: { name: 'Engineering' },
+    update: {},
+    create: { name: 'Engineering' }
   })
   
-  const devopsDept = await prisma.department.create({
-    data: { name: 'DevOps' }
+  const devopsDept = await prisma.department.upsert({
+    where: { name: 'DevOps' },
+    update: {},
+    create: { name: 'DevOps' }
   })
   
-  const qaDept = await prisma.department.create({
-    data: { name: 'Quality Assurance' }
+  const qaDept = await prisma.department.upsert({
+    where: { name: 'Quality Assurance' },
+    update: {},
+    create: { name: 'Quality Assurance' }
   })
 
   console.log('✅ Created 3 departments')
+
+  // Create demo department admin
+  const deptAdminPassword = await bcrypt.hash('admin123', 10)
+
+  if (engineeringDept) {
+    const deptAdmin = await prisma.admin.upsert({
+      where: { username: 'dept_admin' },
+      update: {
+        password: deptAdminPassword,
+        isDefaultPassword: true,
+        role: 'ADMIN',
+      },
+      create: {
+        username: 'dept_admin',
+        password: deptAdminPassword,
+        isDefaultPassword: true,
+        role: 'ADMIN',
+      },
+    })
+    console.log('✅ Demo department admin created (username: dept_admin, password: admin123)')
+
+    // Assign to Engineering department
+    await prisma.adminDepartment.upsert({
+      where: {
+        adminId_departmentId: {
+          adminId: deptAdmin.id,
+          departmentId: engineeringDept.id
+        }
+      },
+      update: {},
+      create: {
+        adminId: deptAdmin.id,
+        departmentId: engineeringDept.id
+      }
+    })
+    console.log(`✅ Demo admin assigned to department: ${engineeringDept.name}`)
+  }
 
   // Create sample positions
   const positions = [
@@ -57,7 +102,11 @@ async function main() {
   ]
 
   for (const pos of positions) {
-    await prisma.position.create({ data: pos })
+    await prisma.position.upsert({
+      where: { name_departmentId: { name: pos.name, departmentId: pos.departmentId } },
+      update: {},
+      create: pos
+    })
   }
 
   console.log(`✅ Created ${positions.length} positions`)
@@ -221,9 +270,18 @@ async function main() {
   for (const q of questions) {
     const { choices, ...questionData } = q
     
-    await prisma.question.create({
-      data: {
+    await prisma.question.upsert({
+      where: { questionText: q.questionText },
+      update: {
+        type: q.type,
+        category: q.category,
+        difficulty: q.difficulty,
+        codeSnippet: q.codeSnippet || null,
+        departmentId: engineeringDept.id,
+      },
+      create: {
         ...questionData,
+        departmentId: engineeringDept.id,
         choices: choices ? {
           create: choices
         } : undefined
@@ -275,7 +333,10 @@ async function main() {
 
   for (const quiz of quizzes) {
     await prisma.quiz.create({
-      data: quiz
+      data: {
+        ...quiz,
+        departmentId: engineeringDept.id
+      }
     })
   }
 
@@ -287,6 +348,7 @@ async function main() {
       name: 'Technical Interview',
       description: 'Comprehensive technical assessment',
       timeLimit: 90,
+      departmentId: engineeringDept.id,
       quizzes: {
         create: [
           { quizId: 1, order: 1 }, // Linux Basics
@@ -302,6 +364,7 @@ async function main() {
       name: 'Infrastructure Assessment',
       description: 'Networking and system administration',
       timeLimit: 60,
+      departmentId: engineeringDept.id,
       quizzes: {
         create: [
           { quizId: 2, order: 1 }, // Networking Fundamentals
@@ -316,6 +379,7 @@ async function main() {
       name: 'Full Stack Assessment',
       description: 'Full stack developer evaluation',
       timeLimit: 120,
+      departmentId: engineeringDept.id,
       quizzes: {
         create: [
           { quizId: 4, order: 1 }, // Programming Concepts
@@ -336,8 +400,15 @@ async function main() {
     where: { name: 'Senior Developer' }
   })
 
-  const sampleCandidate = await prisma.candidate.create({
-    data: {
+  const sampleCandidate = await prisma.candidate.upsert({
+    where: { name_phoneNumber: { name: 'John Doe', phoneNumber: '+1-555-0123' } },
+    update: {
+      email: 'john.doe@example.com',
+      departmentId: engineeringDept.id,
+      positionId: seniorDevPosition.id,
+      notes: 'Strong background in full-stack development',
+    },
+    create: {
       name: 'John Doe',
       phoneNumber: '+1-555-0123',
       email: 'john.doe@example.com',

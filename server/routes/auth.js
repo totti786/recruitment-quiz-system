@@ -38,7 +38,7 @@ router.post('/login', [
     }
 
     const token = jwt.sign(
-      { userId: admin.id, type: 'admin' },
+      { userId: admin.id, role: admin.role, type: 'admin' },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     )
@@ -49,6 +49,7 @@ router.post('/login', [
     res.json({ 
       token, 
       username: admin.username,
+      role: admin.role,
       isDefaultPassword 
     })
   } catch (error) {
@@ -59,7 +60,11 @@ router.post('/login', [
 
 // Verify token
 router.get('/verify', authenticateToken, (req, res) => {
-  res.json({ valid: true, userId: req.userId })
+  res.json({
+    valid: true,
+    userId: req.userId,
+    role: req.userRole
+  })
 })
 
 // Change password

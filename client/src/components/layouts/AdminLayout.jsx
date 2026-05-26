@@ -12,6 +12,7 @@ import {
   Building2,
   Briefcase,
   Shield,
+  ScrollText,
   AlertTriangle,
   Lock,
   Eye,
@@ -23,17 +24,21 @@ import { useAuthStore } from '../../hooks/useAuthStore.js'
 import { authApi } from '../../utils/api.js'
 import ThemeToggle from '../ThemeToggle.jsx'
 
-const navItems = [
-  { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/admin/candidates', label: 'Candidates', icon: Users },
-  { path: '/admin/sessions', label: 'Sessions', icon: Layers },
-  { path: '/admin/quizzes', label: 'Quizzes', icon: BookOpen },
-  { path: '/admin/questions', label: 'Questions', icon: HelpCircle },
-  { path: '/admin/departments', label: 'Departments', icon: Building2 },
-  { path: '/admin/positions', label: 'Positions', icon: Briefcase },
-  { path: '/admin/results', label: 'Results', icon: BarChart3 },
-  { path: '/admin/account', label: 'Account', icon: User },
+const allNavItems = [
+  { path: '/admin', label: 'Dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { path: '/admin/candidates', label: 'Candidates', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { path: '/admin/sessions', label: 'Sessions', icon: Layers, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { path: '/admin/quizzes', label: 'Quizzes', icon: BookOpen, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { path: '/admin/questions', label: 'Questions', icon: HelpCircle, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { path: '/admin/departments', label: 'Departments', icon: Building2, roles: ['SUPER_ADMIN'] },
+  { path: '/admin/positions', label: 'Positions', icon: Briefcase, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { path: '/admin/results', label: 'Results', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { path: '/admin/admins', label: 'Admins', icon: Shield, roles: ['SUPER_ADMIN'] },
+  { path: '/admin/audit', label: 'Audit Log', icon: ScrollText, roles: ['SUPER_ADMIN'] },
+  { path: '/admin/account', label: 'Account', icon: User, roles: ['SUPER_ADMIN', 'ADMIN'] },
 ]
+
+const navItems = allNavItems.filter(item => item.roles.includes(user?.role || 'ADMIN'))
 
 function AdminPasswordModal({
   isOpen,

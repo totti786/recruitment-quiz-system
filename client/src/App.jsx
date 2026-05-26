@@ -21,6 +21,8 @@ import Results from './pages/admin/Results.jsx'
 import ResultDetail from './pages/admin/ResultDetail.jsx'
 import Login from './pages/admin/Login.jsx'
 import Account from './pages/admin/Account.jsx'
+import AdminManagement from './pages/admin/AdminManagement.jsx'
+import AuditLog from './pages/admin/AuditLog.jsx'
 
 // Quiz Pages
 import QuizAccess from './pages/quiz/QuizAccess.jsx'
@@ -29,6 +31,7 @@ import QuizComplete from './pages/quiz/QuizComplete.jsx'
 
 // Protected Route
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import RoleGate from './components/RoleGate.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import ToastContainer from './components/Toast.jsx'
 
@@ -64,16 +67,18 @@ function App() {
           </ProtectedRoute>
         }>
           <Route index element={<Dashboard />} />
-          <Route path="candidates" element={<Candidates />} />
-          <Route path="candidates/:id" element={<CandidateDetail />} />
-          <Route path="departments" element={<Departments />} />
-          <Route path="positions" element={<Positions />} />
-          <Route path="sessions" element={<Sessions />} />
-          <Route path="quizzes" element={<Quizzes />} />
-          <Route path="questions" element={<Questions />} />
-          <Route path="results" element={<Results />} />
-          <Route path="results/:sessionId" element={<ResultDetail />} />
-          <Route path="account" element={<Account />} />
+          <Route path="candidates" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><Candidates /></RoleGate>} />
+          <Route path="candidates/:id" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><CandidateDetail /></RoleGate>} />
+          <Route path="departments" element={<RoleGate roles={['SUPER_ADMIN']}><Departments /></RoleGate>} />
+          <Route path="positions" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><Positions /></RoleGate>} />
+          <Route path="sessions" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><Sessions /></RoleGate>} />
+          <Route path="quizzes" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><Quizzes /></RoleGate>} />
+          <Route path="questions" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><Questions /></RoleGate>} />
+          <Route path="results" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><Results /></RoleGate>} />
+          <Route path="results/:sessionId" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><ResultDetail /></RoleGate>} />
+          <Route path="admins" element={<RoleGate roles={['SUPER_ADMIN']}><AdminManagement /></RoleGate>} />
+          <Route path="audit" element={<RoleGate roles={['SUPER_ADMIN']}><AuditLog /></RoleGate>} />
+          <Route path="account" element={<RoleGate roles={['SUPER_ADMIN', 'ADMIN']}><Account /></RoleGate>} />
         </Route>
 
         {/* Quiz Routes */}

@@ -1,15 +1,21 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, requireRole } from '../middleware/auth.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { departmentFilter } from '../lib/scope.js'
 
 const router = express.Router()
 
+router.use(authenticateToken, requireRole('SUPER_ADMIN', 'ADMIN'))
+
 // Get all sessions
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const sessions = await prisma.session.findMany({
+      where: {
+        ...departmentFilter(req),
+      },
       include: {
         quizzes: {
           include: {
@@ -35,10 +41,13 @@ router.get('/', authenticateToken, async (req, res) => {
 })
 
 // Get single session
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const session = await prisma.session.findUnique({
-      where: { id: parseInt(req.params.id) },
+    const session = await prisma.session.findFirst({
+      where: {
+        id: parseInt(req.params.id),
+        ...departmentFilter(req)
+      },
       include: {
         quizzes: {
           include: {
@@ -68,7 +77,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 })
 
 // Create session
-router.post('/', authenticateToken, [
+router.post('/', [
   body('name').notEmpty().trim(),
   body('description').optional().trim(),
   body('timeLimit').isInt({ min: 5, max: 300 }),
@@ -123,7 +132,7 @@ router.post('/', authenticateToken, [
 })
 
 // Update session
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', async (req, res) => {
   const { name, description, timeLimit, quizIds } = req.body
 
   try {
@@ -176,7 +185,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 })
 
 // Delete session
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     await prisma.session.delete({
       where: { id: parseInt(req.params.id) }

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import swaggerUi from 'swagger-ui-express'
 import { readFileSync } from 'fs'
 import { parseId } from './lib/http.js'
+import { registerAuditMiddleware } from './lib/audit.js'
 
 import authRoutes from './routes/auth.js'
 import candidateRoutes from './routes/candidates.js'
@@ -19,6 +20,8 @@ import sessionRoutes from './routes/sessions.js'
 import quizSessionRoutes from './routes/quiz-sessions.js'
 import dashboardRoutes from './routes/dashboard.js'
 import gradingRoutes from './routes/grading.js'
+import auditRoutes from './routes/audit.js'
+import adminRoutes from './routes/admins.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -28,6 +31,7 @@ const __dirname = path.dirname(__filename)
 const swaggerDocument = JSON.parse(readFileSync(path.join(__dirname, 'swagger.json'), 'utf8'))
 
 dotenv.config()
+registerAuditMiddleware()
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is required')
@@ -126,6 +130,8 @@ app.use('/api/sessions', sessionRoutes)
 app.use('/api/quiz-sessions', quizSessionRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/grading', gradingRoutes)
+app.use('/api/audit', auditRoutes)
+app.use('/api/admins', adminRoutes)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -1,15 +1,21 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, requireRole } from '../middleware/auth.js'
 import { getValidationErrorMessage } from '../lib/http.js'
+import { departmentFilter } from '../lib/scope.js'
 
 const router = express.Router()
 
+router.use(authenticateToken, requireRole('SUPER_ADMIN', 'ADMIN'))
+
 // Get all positions with department info
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const positions = await prisma.position.findMany({
+      where: {
+        ...departmentFilter(req),
+      },
       include: {
         department: true,
         _count: {
@@ -26,7 +32,7 @@ router.get('/', authenticateToken, async (req, res) => {
 })
 
 // Get single position
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const position = await prisma.position.findUnique({
       where: { id: parseInt(req.params.id) },
@@ -48,7 +54,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 })
 
 // Create position
-router.post('/', authenticateToken, [
+router.post('/', [
   body('name').notEmpty().trim(),
   body('departmentId').isInt()
 ], async (req, res) => {
@@ -100,7 +106,7 @@ router.post('/', authenticateToken, [
 })
 
 // Update position
-router.put('/:id', authenticateToken, [
+router.put('/:id', [
   body('name').optional().trim(),
   body('departmentId').optional().isInt()
 ], async (req, res) => {
@@ -153,7 +159,7 @@ router.put('/:id', authenticateToken, [
 })
 
 // Delete position
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const positionId = parseInt(req.params.id)
 

@@ -1,13 +1,21 @@
 import express from 'express'
 import prisma from '../lib/prisma.js'
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateToken, requireRole } from '../middleware/auth.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { departmentFilter } from '../lib/scope.js'
 
 const router = express.Router()
 
+router.use(authenticateToken, requireRole('SUPER_ADMIN', 'ADMIN'))
+
 // Get dashboard statistics
-router.get('/stats', authenticateToken, async (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
+    const deptFilter = departmentFilter(req)
+    const csDeptFilter = req.userRole !== 'SUPER_ADMIN'
+      ? { candidate: { departmentId: { in: req.departmentIds } } }
+      : {}
+
     const [
       totalCandidates,
       totalQuestions,
@@ -17,16 +25,17 @@ router.get('/stats', authenticateToken, async (req, res) => {
       activeSessions,
       pendingGrading
     ] = await Promise.all([
-      prisma.candidate.count(),
-      prisma.question.count(),
-      prisma.session.count(),
-      prisma.quiz.count(),
-      prisma.candidateSession.count({ where: { status: 'COMPLETED' } }),
-      prisma.candidateSession.count({ where: { status: 'ACTIVE' } }),
+      prisma.candidate.count({ where: deptFilter }),
+      prisma.question.count({ where: deptFilter }),
+      prisma.session.count({ where: deptFilter }),
+      prisma.quiz.count({ where: deptFilter }),
+      prisma.candidateSession.count({ where: { status: 'COMPLETED', ...csDeptFilter } }),
+      prisma.candidateSession.count({ where: { status: 'ACTIVE', ...csDeptFilter } }),
       prisma.candidateSession.count({ 
         where: { 
           status: 'COMPLETED',
-          isFullyGraded: false
+          isFullyGraded: false,
+          ...csDeptFilter
         } 
       })
     ])
@@ -34,11 +43,13 @@ router.get('/stats', authenticateToken, async (req, res) => {
     // Get questions by category
     const questionsByCategory = await prisma.question.groupBy({
       by: ['category'],
+      where: deptFilter,
       _count: { id: true }
     })
 
     // Get recent candidate sessions (order by startedAt)
     const recentSessions = await prisma.candidateSession.findMany({
+      where: csDeptFilter,
       take: 5,
       orderBy: { startedAt: 'desc' },
       include: {
@@ -68,10 +79,14 @@ router.get('/stats', authenticateToken, async (req, res) => {
 })
 
 // Get results for all candidates
-router.get('/results', authenticateToken, async (req, res) => {
+router.get('/results', async (req, res) => {
   try {
+    const csDeptFilter = req.userRole !== 'SUPER_ADMIN'
+      ? { candidate: { departmentId: { in: req.departmentIds } } }
+      : {}
+
     const sessions = await prisma.candidateSession.findMany({
-      where: { status: 'COMPLETED' },
+      where: { status: 'COMPLETED', ...csDeptFilter },
       include: {
         candidate: {
           include: {
@@ -162,12 +177,16 @@ router.get('/results', authenticateToken, async (req, res) => {
 })
 
 // Get detailed result for a specific session
-router.get('/results/:sessionId', authenticateToken, async (req, res) => {
+router.get('/results/:sessionId', async (req, res) => {
   try {
     const candidateSessionId = parseInt(req.params.sessionId)
     
-    const session = await prisma.candidateSession.findUnique({
-      where: { id: candidateSessionId },
+    const csDeptFilter = req.userRole !== 'SUPER_ADMIN'
+      ? { candidate: { departmentId: { in: req.departmentIds } } }
+      : {}
+
+    const session = await prisma.candidateSession.findFirst({
+      where: { id: candidateSessionId, ...csDeptFilter },
       include: {
         candidate: {
           include: {
@@ -359,10 +378,14 @@ router.get('/results/:sessionId', authenticateToken, async (req, res) => {
 })
 
 // Export results to CSV
-router.get('/export', authenticateToken, async (req, res) => {
+router.get('/export', async (req, res) => {
   try {
+    const csDeptFilter = req.userRole !== 'SUPER_ADMIN'
+      ? { candidate: { departmentId: { in: req.departmentIds } } }
+      : {}
+
     const sessions = await prisma.candidateSession.findMany({
-      where: { status: 'COMPLETED' },
+      where: { status: 'COMPLETED', ...csDeptFilter },
       include: {
         candidate: true,
         session: true,
