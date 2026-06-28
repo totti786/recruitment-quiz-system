@@ -38,8 +38,6 @@ const allNavItems = [
   { path: '/admin/account', label: 'Account', icon: User, roles: ['SUPER_ADMIN', 'ADMIN'] },
 ]
 
-const navItems = allNavItems.filter(item => item.roles.includes(user?.role || 'ADMIN'))
-
 function AdminPasswordModal({
   isOpen,
   onClose,
@@ -164,6 +162,8 @@ export default function AdminLayout() {
   const [passwordError, setPasswordError] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [passwordSuccess, setPasswordSuccess] = useState(false)
+
+  const navItems = allNavItems.filter(item => item.roles.includes(user?.role || 'ADMIN'))
 
   useEffect(() => {
     if (isDefaultPassword) {
