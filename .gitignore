@@ -9,4 +9,4 @@ coverage/
 *.db-journal
 .vscode/
 .idea/
-.qwen/
+.qwen/quiz-airgap-bundle.tar.gz
