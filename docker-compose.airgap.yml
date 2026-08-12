@@ -1,0 +1,32 @@
+# Air-gapped deployment — images are pre-built by CI, pulled from the internal
+# registry and tagged locally before `up`:
+#   docker pull <registry>/<project>/server:<sha>
+#   docker tag  <registry>/<project>/server:<sha> recruitment-quiz-server:latest
+#   docker compose -f docker-compose.airgap.yml up -d
+services:
+  server:
+    image: recruitment-quiz-server:latest
+    container_name: quiz-server-airgap
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env.deploy
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - server-data:/app/prisma
+      - server-uploads:/app/uploads
+    restart: unless-stopped
+
+  client:
+    image: recruitment-quiz-client:latest
+    container_name: quiz-client-airgap
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  server-data:
+  server-uploads:

@@ -1,0 +1,13 @@
+# Build context for airgap Dockerfiles is the repo root — keep secrets and
+# heavy dirs out of the build context / image layers.
+.git
+**/node_modules
+**/dist
+.env
+.env.*
+!.env.deploy.example
+*.tar
+*.tar.gz
+*.tgz
+coverage
+airgap/engines/*.tmp

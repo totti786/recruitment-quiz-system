@@ -1,0 +1,104 @@
+# =============================================================================
+# Recruitment Quiz System — CI/CD on the AIR-GAPPED GitLab.
+#
+# Assumptions:
+#   • Runner uses the SHELL executor on a Docker host (no docker:dind, no
+#     helper image to mirror). Register with:
+#       gitlab-runner register --executor shell --tag-list airgap-docker
+#   • Base images pre-pushed to the project registry by airgap/prep.sh
+#     (see airgap/README.md).
+#   • npm deps served by a local Verdaccio (override NPM_REGISTRY in
+#     Settings → CI/CD → Variables if yours is elsewhere).
+#
+# Replace: the runner tag (default `airgap-docker`) and NPM_REGISTRY if needed.
+# =============================================================================
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  NPM_REGISTRY: "http://verdaccio.local:4873/"
+
+# --- Tests ---------------------------------------------------------------
+
+test-server:
+  stage: test
+  tags: [airgap-docker]
+  script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+    - docker run --rm -v "$PWD:/app" -w /app/server
+        -e npm_config_registry=$NPM_REGISTRY
+        -e PRISMA_QUERY_ENGINE_LIBRARY=/app/airgap/engines/libquery_engine-linux-musl-openssl-3.0.x.so.node
+        -e PRISMA_SCHEMA_ENGINE_BINARY=/app/airgap/engines/schema-engine-linux-musl-openssl-3.0.x
+        -e DATABASE_URL=file:./test.db
+        -e JWT_SECRET=test-secret-key
+        -e NODE_ENV=test
+        $CI_REGISTRY/base/node:20-openssl
+        sh -c 'npm ci --ignore-scripts && npx prisma generate && npm test'
+
+test-client:
+  stage: test
+  tags: [airgap-docker]
+  script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+    - docker run --rm -v "$PWD:/app" -w /app/client
+        -e npm_config_registry=$NPM_REGISTRY
+        $CI_REGISTRY/base/node:20-alpine
+        sh -c 'npm ci --ignore-scripts && npm test'
+
+# --- Build + push to the internal registry ---------------------------------
+
+.build:
+  stage: build
+  tags: [airgap-docker]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+
+build-server:
+  extends: .build
+  script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+    - docker build -f airgap/server.Dockerfile
+        --build-arg BASE_REGISTRY=$CI_REGISTRY
+        --build-arg NPM_REGISTRY=$NPM_REGISTRY
+        -t $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA
+        -t $CI_REGISTRY_IMAGE/server:latest
+        .
+    - docker push $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE/server:latest
+
+build-client:
+  extends: .build
+  script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+    - docker build -f airgap/client.Dockerfile
+        --build-arg BASE_REGISTRY=$CI_REGISTRY
+        --build-arg NPM_REGISTRY=$NPM_REGISTRY
+        -t $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA
+        -t $CI_REGISTRY_IMAGE/client:latest
+        .
+    - docker push $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE/client:latest
+
+# --- Deploy (on the runner host) ---------------------------------------------
+
+deploy:
+  stage: deploy
+  tags: [airgap-docker]
+  environment: production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+    - docker pull $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA
+    - docker pull $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA
+    - docker tag $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA recruitment-quiz-server:latest
+    - docker tag $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA recruitment-quiz-client:latest
+    - test -f .env.deploy || cp .env.deploy.example .env.deploy
+    - docker compose -f docker-compose.airgap.yml up -d
+    - sleep 8
+    - curl -sf http://localhost:3001/api/health || exit 1
+    # migrations run inside the container (prisma CLI ships in the image)
+    - docker compose -f docker-compose.airgap.yml exec -T server npx prisma migrate deploy
