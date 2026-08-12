@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js'
 import { authenticateToken, requireRole } from '../middleware/auth.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { departmentFilter } from '../lib/scope.js'
+import { selectDeterministicQuestions } from '../lib/quizSession.js'
 
 const router = express.Router()
 
@@ -267,9 +268,16 @@ router.get('/results/:sessionId', async (req, res) => {
       }
     })
 
-    // Group answers by quiz based on question category
+    // Lookup answers by questionId
+    const answersByQuestionId = {}
+    session.answers.forEach(answer => {
+      answersByQuestionId[answer.questionId] = answer
+    })
+
+    // Group questions by quiz based on question category,
+    // including ALL questions (not just answered ones)
     const quizzesMap = {}
-    session.session.quizzes.forEach((sq, idx) => {
+    for (const [idx, sq] of session.session.quizzes.entries()) {
       quizzesMap[idx] = {
         quizIndex: idx,
         quiz: {
@@ -280,36 +288,51 @@ router.get('/results/:sessionId', async (req, res) => {
         },
         questions: []
       }
-    })
 
-    session.answers.forEach(answer => {
-      const quizInfo = categoryToQuiz[answer.question.category]
-      if (quizInfo) {
-        quizzesMap[quizInfo.index].questions.push({
-          id: answer.id,
+      // Load the same deterministic set of questions shown to the candidate
+      const allQuestions = await prisma.question.findMany({
+        where: { category: sq.quiz.category },
+        include: { choices: true },
+        orderBy: { id: 'asc' }
+      })
+
+      const seed = `${session.id}:${session.sessionId}:${idx}:${sq.quiz.id}`
+      const selectedQuestions = selectDeterministicQuestions(
+        allQuestions,
+        sq.quiz.questionCount,
+        seed
+      )
+
+      for (const question of selectedQuestions) {
+        const answer = answersByQuestionId[question.id] || null
+
+        quizzesMap[idx].questions.push({
+          id: answer?.id ?? null,
           question: {
-            id: answer.question.id,
-            questionText: answer.question.questionText,
-            type: answer.question.type,
-            category: answer.question.category,
-            difficulty: answer.question.difficulty,
-            codeSnippet: answer.question.codeSnippet,
-            choices: answer.question.choices
+            id: question.id,
+            questionText: question.questionText,
+            type: question.type,
+            category: question.category,
+            difficulty: question.difficulty,
+            codeSnippet: question.codeSnippet,
+            choices: question.choices
           },
-          answer: {
-            id: answer.id,
-            selectedChoiceId: answer.selectedChoiceId,
-            selectedChoiceText: answer.selectedChoice?.choiceText,
-            textAnswer: answer.textAnswer,
-            isCorrect: answer.isCorrect,
-            isGraded: answer.isGraded,
-            score: answer.score,
-            gradingNotes: answer.gradingNotes,
-            gradedAt: answer.gradedAt
-          }
+          answer: answer
+            ? {
+                id: answer.id,
+                selectedChoiceId: answer.selectedChoiceId,
+                selectedChoiceText: answer.selectedChoice?.choiceText,
+                textAnswer: answer.textAnswer,
+                isCorrect: answer.isCorrect,
+                isGraded: answer.isGraded,
+                score: answer.score,
+                gradingNotes: answer.gradingNotes,
+                gradedAt: answer.gradedAt
+              }
+            : null
         })
       }
-    })
+    }
 
     // Calculate per-quiz scores
     const quizzes = Object.values(quizzesMap).map(q => {

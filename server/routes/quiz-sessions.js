@@ -68,6 +68,42 @@ async function getQuizQuestionsForSession(candidateSession, quizIndex) {
   }
 }
 
+// Create placeholder Answer records for questions the candidate skipped,
+// so they appear in grading even when left unanswered.
+async function ensureAllQuestionsAnswered(candidateSessionId) {
+  const candidateSession = await loadCandidateSession(candidateSessionId)
+  if (!candidateSession) return
+
+  const existingAnswers = await prisma.answer.findMany({
+    where: { candidateSessionId },
+    select: { questionId: true }
+  })
+  const answeredQuestionIds = new Set(existingAnswers.map(a => a.questionId))
+
+  const toCreate = []
+  for (let idx = 0; idx < candidateSession.session.quizzes.length; idx++) {
+    const quizData = await getQuizQuestionsForSession(candidateSession, idx)
+    if (!quizData) continue
+
+    for (const question of quizData.questions) {
+      if (!answeredQuestionIds.has(question.id)) {
+        toCreate.push({
+          candidateSessionId,
+          questionId: question.id,
+          quizIndex: idx,
+          selectedChoiceId: null,
+          textAnswer: null,
+          isCorrect: null
+        })
+      }
+    }
+  }
+
+  if (toCreate.length > 0) {
+    await prisma.answer.createMany({ data: toCreate })
+  }
+}
+
 // Get candidate's available sessions
 router.get('/candidate/:candidateId/sessions', async (req, res) => {
   try {
@@ -406,7 +442,9 @@ router.post('/next-quiz', [
     const totalQuizzes = candidateSession.session.quizzes.length
 
     if (nextQuizIndex >= totalQuizzes) {
-      // Session complete
+      // Session complete — ensure unanswered questions have placeholder answers
+      await ensureAllQuestionsAnswered(candidateSessionId)
+
       await prisma.candidateSession.update({
         where: { id: candidateSessionId },
         data: {
@@ -457,6 +495,9 @@ router.post('/submit', [
     if (!sameIdentifier(req.candidateSessionId, candidateSessionId)) {
       return res.status(403).json({ error: 'Session token does not match request' })
     }
+
+    // Ensure unanswered questions have placeholder answers for grading
+    await ensureAllQuestionsAnswered(candidateSessionId)
 
     await prisma.candidateSession.update({
       where: { id: candidateSessionId },

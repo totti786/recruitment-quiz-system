@@ -226,11 +226,15 @@ export default function QuizInterface() {
   }, [tabSwitchCount])
 
   useEffect(() => {
-    if (!sessionData || !candidateSessionId) return
+    if (!candidateSessionId) return
+
+    // Use a ref so the event handler always sees the latest value
+    // without needing to re-register on every render.
+    const csId = candidateSessionId
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
-        quizSessionsApi.logEvent(candidateSessionId, 'FULLSCREEN_EXIT', { reEntryAttempted: true }).catch(() => {})
+        quizSessionsApi.logEvent(csId, 'FULLSCREEN_EXIT', { reEntryAttempted: true }).catch(() => {})
         document.documentElement.requestFullscreen().catch(() => {
           // Browser may block fullscreen re-request
         })
@@ -254,7 +258,7 @@ export default function QuizInterface() {
         document.exitFullscreen().catch(() => {})
       }
     }
-  }, [sessionData, candidateSessionId])
+  }, [candidateSessionId])
 
   const question = questions[currentQuestion]
   const totalQuizzes = sessionData?.totalQuizzes || 1

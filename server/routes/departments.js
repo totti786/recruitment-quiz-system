@@ -6,12 +6,15 @@ import { getValidationErrorMessage } from '../lib/http.js'
 
 const router = express.Router()
 
-router.use(authenticateToken, requireRole('SUPER_ADMIN'))
+router.use(authenticateToken, requireRole('SUPER_ADMIN', 'ADMIN'))
 
 // Get all departments with their positions
 router.get('/', async (req, res) => {
   try {
     const departments = await prisma.department.findMany({
+      where: req.userRole !== 'SUPER_ADMIN'
+        ? { id: { in: req.departmentIds } }
+        : {},
       include: {
         positions: true,
         _count: {

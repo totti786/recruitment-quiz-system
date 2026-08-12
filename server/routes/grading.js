@@ -2,6 +2,7 @@ import express from 'express'
 import { body, validationResult } from 'express-validator'
 import prisma from '../lib/prisma.js'
 import { authenticateToken, requireRole } from '../middleware/auth.js'
+import { selectDeterministicQuestions } from '../lib/quizSession.js'
 
 const router = express.Router()
 
@@ -125,34 +126,55 @@ router.get('/session/:candidateSessionId', async (req, res) => {
     const gradedQuestions = mcAnswers.length + gradedWritten.length
     const isFullyGraded = writtenAnswers.every(a => a.isGraded)
     
-    // Build quiz structure
+    // Build answer lookup by questionId
+    const answersByQuestionId = {}
+    session.answers.forEach(answer => {
+      answersByQuestionId[answer.questionId] = answer
+    })
+
+    // Build quiz structure with ALL questions (not just answered ones)
     const quizzesMap = {}
-    session.session.quizzes.forEach((sq, idx) => {
+    for (const [idx, sq] of session.session.quizzes.entries()) {
       quizzesMap[idx] = {
         quizIndex: idx,
         quiz: sq.quiz,
         questions: []
       }
-    })
 
-    session.answers.forEach(answer => {
-      const quizIndex = answer.quizIndex || 0
-      if (quizzesMap[quizIndex]) {
-        quizzesMap[quizIndex].questions.push({
-          id: answer.id,
-          question: answer.question,
-          answer: {
-            selectedChoiceId: answer.selectedChoiceId,
-            textAnswer: answer.textAnswer,
-            isCorrect: answer.isCorrect,
-            score: answer.score,
-            maxScore: answer.maxScore,
-            isGraded: answer.isGraded,
-            gradingNotes: answer.gradingNotes
-          }
+      // Load the same deterministic set of questions shown to the candidate
+      const allQuestions = await prisma.question.findMany({
+        where: { category: sq.quiz.category },
+        include: { choices: true },
+        orderBy: { id: 'asc' }
+      })
+
+      const seed = `${session.id}:${session.sessionId}:${idx}:${sq.quiz.id}`
+      const selectedQuestions = selectDeterministicQuestions(
+        allQuestions,
+        sq.quiz.questionCount,
+        seed
+      )
+
+      for (const question of selectedQuestions) {
+        const answer = answersByQuestionId[question.id] || null
+
+        quizzesMap[idx].questions.push({
+          id: answer?.id ?? null,
+          question,
+          answer: answer
+            ? {
+                selectedChoiceId: answer.selectedChoiceId,
+                textAnswer: answer.textAnswer,
+                isCorrect: answer.isCorrect,
+                score: answer.score,
+                maxScore: answer.maxScore,
+                isGraded: answer.isGraded,
+                gradingNotes: answer.gradingNotes
+              }
+            : null
         })
       }
-    })
+    }
 
     res.json({
       session: {
