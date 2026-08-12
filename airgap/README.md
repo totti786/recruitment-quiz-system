@@ -11,14 +11,14 @@ internal GitLab runner; nothing is pre-built and shipped as a black box.
 | Base images (`node:20-alpine`, `nginx:alpine`) | Docker Hub | Retagged into your GitLab registry as `<REGISTRY>/base/*` (prep.sh) |
 | `apk add openssl` (server) | dl-cdn.alpinelinux.org | Pre-baked into `base/node:20-openssl` — the `apk` line is gone from the Dockerfile |
 | npm packages (`npm ci`) | registry.npmjs.org | Local Verdaccio proxy at `http://verdaccio.local:4873/` |
-| Prisma engine binaries | binaries.prisma.sh (downloaded by a `postinstall` script — **not** via npm) | Vendored into the repo at `airgap/engines/`; `PRISMA_*_BINARY` env vars point Prisma at them (prep.sh) |
+| Prisma engine binaries | binaries.prisma.sh (downloaded by a `postinstall` script — **not** via npm) | Baked into `base/node:20-openssl` at `/opt/prisma-engines/` with `PRISMA_*_BINARY` env vars (prep.sh) — nothing heavy in the repo |
 | `prisma` CLI at container start | (npx would download it — latent bug) | Fixed: the airgap Dockerfile deliberately skips `npm prune --omit=dev` so the CLI ships in the image |
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `airgap/prep.sh` | **Connected machine**: base images → registry, engines → `airgap/engines/`, optional npm-cache bundle |
+| `airgap/prep.sh` | **Connected machine**: downloads Prisma engines, bakes them + openssl into `base/node:20-openssl`, pushes all base images to the registry, optional npm-cache bundle |
 | `airgap/server.Dockerfile` | Offline server image (context = repo root) |
 | `airgap/client.Dockerfile` | Offline client image (context = repo root) |
 | `airgap/setup-verdaccio.sh` | **Air-gap host**: starts Verdaccio from your registry |
@@ -34,9 +34,11 @@ internal GitLab runner; nothing is pre-built and shipped as a black box.
 REGISTRY=gitlab.local:5050 TOKEN=<gitlab-pat-with-write_registry> bash airgap/prep.sh
 ```
 
-Produces: `airgap/engines/` (commit it — it's ~30–60 MB of engine binaries) and
+Downloads the Prisma engines for the lockfile, builds `base/node:20-openssl`
+with them baked in (`/opt/prisma-engines/` + `PRISMA_*_BINARY` env vars), and
 pushes `base/node:20-alpine`, `base/node:20-openssl`, `base/nginx:alpine`,
-`base/verdaccio:5` to your registry.
+`base/verdaccio:5` to your registry. **Nothing heavy gets committed to the
+repo** — the engines live only in the base image.
 
 ### 2. Push the repo to your internal GitLab
 
@@ -94,10 +96,10 @@ then run migrations inside the container. App at `http://<host>/`.
 
 - **npm deps:** nothing to do — Verdaccio serves the cache; new packages are
   only unavailable if they were never fetched (re-seed for brand-new deps).
-- **Prisma version bump:** re-run `prep.sh` on the connected machine, commit
-  the new `airgap/engines/`, push. The `PRISMA_*_BINARY` env vars must match
-  the new filenames (they don't change across Prisma versions — the
-  `<target>` part is stable — but the binaries do).
+- **Prisma version bump:** re-run `prep.sh` on the connected machine — it
+  rebuilds `base/node:20-openssl` with the new engines and pushes it. The app
+  Dockerfiles need no changes (they inherit the env vars from the base image).
+  The base image and the app lockfile must be updated together.
 
 ## Gotchas
 

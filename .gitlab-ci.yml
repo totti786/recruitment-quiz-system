@@ -30,8 +30,6 @@ test-server:
     - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
     - docker run --rm -v "$PWD:/app" -w /app/server
         -e npm_config_registry=$NPM_REGISTRY
-        -e PRISMA_QUERY_ENGINE_LIBRARY=/app/airgap/engines/libquery_engine-linux-musl-openssl-3.0.x.so.node
-        -e PRISMA_SCHEMA_ENGINE_BINARY=/app/airgap/engines/schema-engine-linux-musl-openssl-3.0.x
         -e DATABASE_URL=file:./test.db
         -e JWT_SECRET=test-secret-key
         -e NODE_ENV=test

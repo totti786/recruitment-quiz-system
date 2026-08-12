@@ -1,9 +1,11 @@
 # =============================================================================
 # Recruitment Quiz System — server image, built FULLY OFFLINE on the
 # air-gapped network. Every external input has been made local:
-#   • base image  → <BASE_REGISTRY>/base/node:20-openssl   (pre-pushed by prep.sh)
+#   • base image  → <BASE_REGISTRY>/base/node:20-openssl   (pre-pushed by
+#     prep.sh — includes openssl + Prisma engines + PRISMA_*_BINARY env vars)
 #   • npm deps    → <NPM_REGISTRY>                         (Verdaccio proxy)
-#   • Prisma      → vendored engines in airgap/engines/    (produced by prep.sh)
+#   • Prisma      → engines baked into the base image — no downloads, nothing
+#     heavy in the repo
 #
 # Build from the REPO ROOT (context = .):
 #   docker build -f airgap/server.Dockerfile \
@@ -19,12 +21,9 @@ FROM ${BASE_REGISTRY}/base/node:20-openssl AS deps
 ARG NPM_REGISTRY
 WORKDIR /app
 
-# Vendored Prisma engines (linux-musl for the alpine runtime + debian-openssl-3.0.x
-# per schema.prisma binaryTargets). The PRISMA_*_BINARY env vars make prisma use
-# these files directly — zero downloads, no binaries.prisma.sh needed.
-COPY airgap/engines/ /opt/prisma-engines/
-ENV PRISMA_QUERY_ENGINE_LIBRARY=/opt/prisma-engines/libquery_engine-linux-musl-openssl-3.0.x.so.node
-ENV PRISMA_SCHEMA_ENGINE_BINARY=/opt/prisma-engines/schema-engine-linux-musl-openssl-3.0.x
+# PRISMA_QUERY_ENGINE_LIBRARY / PRISMA_SCHEMA_ENGINE_BINARY are inherited from
+# the base image (point at /opt/prisma-engines/), so `prisma generate` uses
+# those files directly — zero downloads, no binaries.prisma.sh needed.
 
 ENV npm_config_registry=${NPM_REGISTRY}
 COPY server/package*.json ./
@@ -43,13 +42,10 @@ FROM ${BASE_REGISTRY}/base/node:20-openssl
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PRISMA_QUERY_ENGINE_LIBRARY=/opt/prisma-engines/libquery_engine-linux-musl-openssl-3.0.x.so.node
-ENV PRISMA_SCHEMA_ENGINE_BINARY=/opt/prisma-engines/schema-engine-linux-musl-openssl-3.0.x
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package*.json ./
 COPY server/ ./
-COPY airgap/engines/ /opt/prisma-engines/
 
 RUN mkdir -p uploads
 
