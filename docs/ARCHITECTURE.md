@@ -37,7 +37,7 @@ A local-first recruitment quiz and testing system for interviews. The applicatio
 
 ### Client-Server Communication
 
-- **Frontend**: React SPA served by Vite dev server (development) or Nginx (production)
+- **Frontend**: React SPA served by Vite dev server (development) or statically by Express (production)
 - **Backend API**: Express.js REST API
 - **Authentication**: JWT tokens with 24h expiry
 - **State Management**: React hooks + Zustand for auth state
@@ -76,8 +76,6 @@ A local-first recruitment quiz and testing system for interviews. The applicatio
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Containerization | Docker | Consistent environments |
-| Orchestration | Docker Compose | Multi-container setup |
 | Database Migrations | Prisma Migrate | Schema versioning |
 
 ---
@@ -86,8 +84,6 @@ A local-first recruitment quiz and testing system for interviews. The applicatio
 
 ```
 recruitment-quiz-system/
-├── docker-compose.yml          # Development orchestration
-├── docker-compose.prod.yml     # Production orchestration
 ├── package.json                # Root scripts
 │
 ├── server/                    # Backend application
@@ -294,12 +290,7 @@ Answer
 
 ## Development Workflow
 
-### Running Locally (Docker)
-```bash
-docker-compose up --build
-```
-
-### Running Without Docker
+### Running Locally
 ```bash
 npm run setup    # Install deps + migrations + seed
 npm run dev      # Start server + client
@@ -308,13 +299,13 @@ npm run dev      # Start server + client
 ### Database Operations
 ```bash
 # Reset database
-docker-compose exec server npx prisma migrate reset
+npx prisma migrate reset
 
 # Seed data
-docker-compose exec server npx prisma db seed
+npx prisma db seed
 
 # View database
-docker-compose exec server npx prisma studio
+npx prisma studio
 ```
 
 ---

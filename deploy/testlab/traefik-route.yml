@@ -1,0 +1,21 @@
+# Traefik dynamic route — add to /opt/traefik/config/dynamic/routes.yml on proxy
+# then: docker restart traefik && curl -k https://quiz.testlab.local/api/health
+#
+# DNS is free — *.testlab.local already resolves to 10.11.204.4 via catch-all.
+
+    quiz:
+      rule: "Host(`quiz.testlab.local`)"
+      entryPoints:
+        - websecure
+      service: quiz
+      tls: true
+
+# inside services:
+    quiz:
+      loadBalancer:
+        servers:
+          # Pattern D on control (127.0.0.1:3001 on 10.11.204.9):
+          - url: "http://10.11.204.9:3001"
+          # Pattern K on k3s (NodePort 30181 on 10.11.204.11):
+          # - url: "http://10.11.204.11:30181"
+        passHostHeader: true

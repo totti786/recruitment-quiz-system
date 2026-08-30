@@ -1,102 +1,47 @@
-# =============================================================================
-# Recruitment Quiz System — CI/CD on the AIR-GAPPED GitLab.
-#
-# Assumptions:
-#   • Runner uses the SHELL executor on a Docker host (no docker:dind, no
-#     helper image to mirror). Register with:
-#       gitlab-runner register --executor shell --tag-list airgap-docker
-#   • Base images pre-pushed to the project registry by airgap/prep.sh
-#     (see airgap/README.md).
-#   • npm deps served by a local Verdaccio (override NPM_REGISTRY in
-#     Settings → CI/CD → Variables if yours is elsewhere).
-#
-# Replace: the runner tag (default `airgap-docker`) and NPM_REGISTRY if needed.
-# =============================================================================
-
-stages:
-  - test
-  - build
-  - deploy
+stages: [build, publish, deploy]
 
 variables:
-  NPM_REGISTRY: "http://verdaccio.local:4873/"
+  REGISTRY: registry.testlab.local
+  IMAGE: $REGISTRY/recruitment-quiz:$CI_COMMIT_SHORT_SHA
+  IMAGE_LATEST: $REGISTRY/recruitment-quiz:latest
 
-# --- Tests ---------------------------------------------------------------
-
-test-server:
-  stage: test
-  tags: [airgap-docker]
-  script:
-    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
-    - docker run --rm -v "$PWD:/app" -w /app/server
-        -e npm_config_registry=$NPM_REGISTRY
-        -e DATABASE_URL=file:./test.db
-        -e JWT_SECRET=test-secret-key
-        -e NODE_ENV=test
-        $CI_REGISTRY/base/node:20-openssl
-        sh -c 'npm ci --ignore-scripts && npx prisma generate && npm test'
-
-test-client:
-  stage: test
-  tags: [airgap-docker]
-  script:
-    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
-    - docker run --rm -v "$PWD:/app" -w /app/client
-        -e npm_config_registry=$NPM_REGISTRY
-        $CI_REGISTRY/base/node:20-alpine
-        sh -c 'npm ci --ignore-scripts && npm test'
-
-# --- Build + push to the internal registry ---------------------------------
-
-.build:
+# Socket-bound (runner host daemon) — privileged=false as-built
+# The runner mounts /var/run/docker.sock, so jobs talk to the host daemon.
+build:
   stage: build
-  tags: [airgap-docker]
+  image: $REGISTRY/docker:24-dind
+  script:
+    - docker build --pull=false -t "$IMAGE" -t "$IMAGE_LATEST" .
+    - docker image inspect "$IMAGE" >/dev/null
+
+publish:
+  stage: publish
+  image: $REGISTRY/docker:24-dind
+  script:
+    - echo "$CI_REGISTRY_USER" | docker login "$REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin || true
+    - docker push "$IMAGE"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker push "$IMAGE_LATEST"
+      fi
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: $CI_PIPELINE_SOURCE == "push"
 
-build-server:
-  extends: .build
-  script:
-    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
-    - docker build -f airgap/server.Dockerfile
-        --build-arg BASE_REGISTRY=$CI_REGISTRY
-        --build-arg NPM_REGISTRY=$NPM_REGISTRY
-        -t $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA
-        -t $CI_REGISTRY_IMAGE/server:latest
-        .
-    - docker push $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA
-    - docker push $CI_REGISTRY_IMAGE/server:latest
-
-build-client:
-  extends: .build
-  script:
-    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
-    - docker build -f airgap/client.Dockerfile
-        --build-arg BASE_REGISTRY=$CI_REGISTRY
-        --build-arg NPM_REGISTRY=$NPM_REGISTRY
-        -t $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA
-        -t $CI_REGISTRY_IMAGE/client:latest
-        .
-    - docker push $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA
-    - docker push $CI_REGISTRY_IMAGE/client:latest
-
-# --- Deploy (on the runner host) ---------------------------------------------
-
-deploy:
+# Pattern D deploy to control (10.11.204.9) — manual gate
+deploy:control:
   stage: deploy
-  tags: [airgap-docker]
-  environment: production
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
+  image: $REGISTRY/alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H 10.11.204.9 >> ~/.ssh/known_hosts
   script:
-    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
-    - docker pull $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA
-    - docker pull $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA
-    - docker tag $CI_REGISTRY_IMAGE/server:$CI_COMMIT_SHORT_SHA recruitment-quiz-server:latest
-    - docker tag $CI_REGISTRY_IMAGE/client:$CI_COMMIT_SHORT_SHA recruitment-quiz-client:latest
-    - test -f .env.deploy || cp .env.deploy.example .env.deploy
-    - docker compose -f docker-compose.airgap.yml up -d
-    - sleep 8
-    - curl -sf http://localhost:3001/api/health || exit 1
-    # migrations run inside the container (prisma CLI ships in the image)
-    - docker compose -f docker-compose.airgap.yml exec -T server npx prisma migrate deploy
+    - ssh root@10.11.204.9 "mkdir -p /opt/quiz/data"
+    - scp deploy/testlab/docker-compose.yml deploy/testlab/.env.production root@10.11.204.9:/opt/quiz/
+    - ssh root@10.11.204.9 "cd /opt/quiz && TAG=$CI_COMMIT_SHORT_SHA docker compose pull && TAG=$CI_COMMIT_SHORT_SHA docker compose up -d && docker compose ps && curl -sf http://localhost:3001/api/health"
+  environment:
+    name: production
+    url: https://quiz.testlab.local
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  when: manual

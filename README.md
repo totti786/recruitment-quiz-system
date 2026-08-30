@@ -4,9 +4,8 @@ A complete local-first web application for internal recruitment quiz/testing dur
 
 ## Production Readiness Notes
 
-- Admin credentials and JWT configuration now come from environment variables. Do not deploy with the sample values from [`server/.env.example`](/home/tarek/Documents/GitHub/recruitment-quiz-system/server/.env.example).
-- Candidate quiz flows now issue a signed session token when a session starts. Subsequent quiz actions require that token.
-- The repository includes a local [`server/.env`](/home/tarek/Documents/GitHub/recruitment-quiz-system/server/.env) for development only. Replace those values before any shared or production deployment.
+- Admin credentials and JWT configuration now come from environment variables. Do not deploy with the sample values from [`server/.env.example`](server/.env.example).
+- The repository includes a local [`server/.env`](server/.env) for development only. Replace those values before any shared or production deployment.
 
 ## Features
 
@@ -40,80 +39,8 @@ A complete local-first web application for internal recruitment quiz/testing dur
 | **Icons** | Lucide React |
 | **Routing** | React Router v6 |
 | **State** | React hooks + Zustand (auth) |
-| **Deployment** | Docker + Docker Compose |
 
-## Quick Start (Docker - Recommended)
-
-The easiest way to run this application is using Docker.
-
-### Prerequisites
-- Docker Engine (v20.10 or higher)
-- Docker Compose (v2.0 or higher)
-
-### Option 1: Development Mode (with hot reload)
-
-```bash
-# Clone or navigate to the project
-cd recruitment-quiz-system
-
-# Start all services in development mode
-docker-compose up --build
-
-# Or run in background
-docker-compose up -d --build
-```
-
-Access the application:
-- **Client**: http://localhost:5173
-- **Server API**: http://localhost:3001
-
-**First time setup** - Database is automatically initialized on first run via `docker-compose.yml` command.
-
-To reset the database:
-```bash
-docker-compose exec server npx prisma db seed
-```
-
-### Option 2: Production Mode
-
-```bash
-# Start in production mode
-docker-compose -f docker-compose.prod.yml up -d
-
-# Initialize database and seed data
-docker-compose -f docker-compose.prod.yml exec server npx prisma migrate deploy
-docker-compose -f docker-compose.prod.yml exec server npx prisma db seed
-```
-
-Access the application:
-- **Client**: http://localhost (port 80)
-- **Server API**: http://localhost:3001/api
-
-### Useful Docker Commands
-
-```bash
-# View logs
-docker-compose logs -f
-
-# View specific service logs
-docker-compose logs -f server
-docker-compose logs -f client
-
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (WARNING: deletes database)
-docker-compose down -v
-
-# Rebuild after code changes
-docker-compose up --build
-
-# Shell into containers
-docker-compose exec server sh
-docker-compose exec client sh
-```
-
-## Quick Start (Without Docker)
+## Quick Start
 
 ### Prerequisites
 - Node.js (v18 or higher)
@@ -153,7 +80,7 @@ npm run dev
 - Client: http://localhost:5173
 - Server API: http://localhost:3001
 
-### Production Build (Without Docker)
+### Production Build
 
 Build the client for production:
 ```bash
@@ -189,18 +116,12 @@ PORT=3001
 
 ```
 recruitment-quiz-system/
-├── docker-compose.yml          # Development Docker Compose
-├── docker-compose.prod.yml     # Production Docker Compose
 ├── package.json                # Root package.json with scripts
 ├── README.md                   # This file
 ├── docs/                       # Documentation
 │   ├── ARCHITECTURE.md         # System architecture details
-│   ├── DEPLOYMENT.md           # Deployment guide
-│   ├── AIRGAP_DEPLOY.md        # Offline deployment guide
 │   └── TESTS.md                # Testing documentation
 ├── server/
-│   ├── Dockerfile              # Production server image
-│   ├── Dockerfile.dev          # Development server image
 │   ├── package.json
 │   ├── server.js              # Express server entry
 │   ├── .env                   # Environment variables
@@ -221,9 +142,6 @@ recruitment-quiz-system/
 │       ├── schema.prisma      # Database schema
 │       └── seed.js            # Sample data
 └── client/
-    ├── Dockerfile             # Production client image
-    ├── Dockerfile.dev         # Development client image
-    ├── nginx.conf             # Nginx configuration
     ├── package.json
     ├── vite.config.js
     ├── tailwind.config.js
@@ -307,7 +225,6 @@ The project includes comprehensive testing suites for both frontend and backend:
 
 - **Backend**: Jest + Supertest for API endpoint testing
 - **Frontend**: Vitest + React Testing Library for component testing
-- **CI/CD**: GitHub Actions workflow for automated testing
 
 ### Running Tests
 
@@ -376,18 +293,12 @@ ADMIN_PASSWORD="admin123"
 PORT=3001
 ```
 
-For production Docker deployments, set these in `docker-compose.prod.yml` or use a `.env` file.
-
 ## Customization
 
 ### Adding More Questions
 
 Edit `server/prisma/seed.js` and add more questions to the `questions` array, then run:
 ```bash
-# With Docker
-docker-compose exec server npx prisma db seed
-
-# Without Docker
 cd server
 npx prisma db seed
 ```
@@ -401,37 +312,6 @@ Default quiz settings can be modified in:
 - `quizInterface.jsx` - Anti-cheating thresholds
 
 ## Troubleshooting
-
-### Docker Issues
-
-**Container won't start:**
-```bash
-# Check logs
-docker-compose logs server
-docker-compose logs client
-
-# Rebuild from scratch
-docker-compose down -v
-docker-compose up --build
-```
-
-**Database migration issues:**
-```bash
-# Reset database (WARNING: deletes all data)
-docker-compose exec server npx prisma migrate reset --force
-
-# Or deploy migrations only
-docker-compose exec server npx prisma migrate deploy
-```
-
-**Port conflicts:**
-Edit `docker-compose.yml` or `docker-compose.prod.yml` to change port mappings:
-```yaml
-ports:
-  - "8080:3001"  # Change 8080 to your preferred port
-```
-
-### Without Docker
 
 **Database issues:**
 ```bash

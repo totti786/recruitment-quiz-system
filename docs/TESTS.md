@@ -150,7 +150,6 @@ The CI pipeline:
 2. Runs server tests with coverage
 3. Runs client tests with coverage
 4. Builds the application
-5. Tests Docker containers (production build)
 
 ## Troubleshooting
 
