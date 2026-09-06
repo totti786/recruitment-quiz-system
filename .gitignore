@@ -7,5 +7,10 @@ dist/
 coverage/
 *.db
 *.db-journal
+# Air-gapped offline bundle (119M musl node_modules + dist) — provided
+# out-of-band on the build host, never committed.
+quiz-alpine-offline.tar.gz
+deploy/testlab/.env.production
+deploy/testlab/data/
 .vscode/
 .idea/

@@ -1,27 +1,23 @@
+FROM registry.testlab.local/recruitment-quiz-server:latest AS old
 FROM registry.testlab.local/library/node:20-alpine AS builder
 WORKDIR /app
-
-# Prisma needs openssl on alpine
-RUN apk add --no-cache openssl
-
-# --- install deps first (better layer cache) ---
-COPY package.json package-lock.json ./
-COPY server/package.json server/package-lock.json ./server/
-COPY client/package.json client/package-lock.json ./client/
-
-RUN npm ci
-RUN npm ci --prefix server
-RUN npm ci --prefix client
-
-# --- copy source ---
+COPY --from=old /usr/bin/openssl /usr/bin/openssl
+COPY --from=old /usr/lib/libssl.so.3 /usr/lib/libssl.so.3
+COPY --from=old /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.3
+RUN chmod +x /usr/bin/openssl
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/server/node_modules/@prisma/engines/libquery_engine-linux-musl-openssl-3.0.x.so.node
+ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/server/node_modules/@prisma/engines/schema-engine-linux-musl-openssl-3.0.x
+COPY package*.json ./
+COPY server/package*.json ./server/
+COPY client/package*.json ./client/
 COPY client ./client
 COPY server ./server
 COPY docs ./docs
 COPY README.md ./README.md
-
-# --- generate Prisma client + build frontend ---
-RUN npx --prefix server prisma generate
-RUN npm run build
+# Offline deps (musl node_modules + prebuilt client/dist) — provided out-of-band,
+# NOT committed to git (see .gitignore). Placed on the build host before build.
+ADD quiz-alpine-offline.tar.gz ./
+RUN ./server/node_modules/.bin/prisma generate --schema=./server/prisma/schema.prisma
 
 # --- runtime ---
 FROM registry.testlab.local/library/node:20-alpine

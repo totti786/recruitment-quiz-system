@@ -1,44 +1,62 @@
-stages: [build, publish, deploy]
+stages: [build, deploy]
 
 variables:
   REGISTRY: registry.testlab.local
+  CONTROL: 10.11.204.9
+  REPO_DIR: /home/mtdashli/recruitment-quiz-system-master
   IMAGE: $REGISTRY/recruitment-quiz:$CI_COMMIT_SHORT_SHA
   IMAGE_LATEST: $REGISTRY/recruitment-quiz:latest
+  # Force docker to talk to the local registry only (air-gapped)
+  DOCKER_BUILDKIT: "1"
 
-# Socket-bound (runner host daemon) — privileged=false as-built
-# The runner mounts /var/run/docker.sock, so jobs talk to the host daemon.
+# Build happens ON CONTROL via SSH — control already holds
+# quiz-alpine-offline.tar.gz (gitignored, placed out-of-band) and pushes
+# straight to the local registry. Runner never builds, never needs npm/apks.
 build:
   stage: build
-  image: $REGISTRY/docker:24-dind
+  image: $REGISTRY/ci-tools:latest
+  before_script:
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$CONTROL" >> ~/.ssh/known_hosts 2>/dev/null
+    - ssh "root@$CONTROL" "test -f $REPO_DIR/quiz-alpine-offline.tar.gz || (echo 'MISSING $REPO_DIR/quiz-alpine-offline.tar.gz' && exit 1)"
   script:
-    - docker build --pull=false -t "$IMAGE" -t "$IMAGE_LATEST" .
-    - docker image inspect "$IMAGE" >/dev/null
-
-publish:
-  stage: publish
-  image: $REGISTRY/docker:24-dind
-  script:
-    - echo "$CI_REGISTRY_USER" | docker login "$REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin || true
-    - docker push "$IMAGE"
+    - ssh "root@$CONTROL" "cd $REPO_DIR && git pull --ff-only && docker build -t '$IMAGE' . && docker push '$IMAGE'"
     - |
       if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
-        docker push "$IMAGE_LATEST"
+        ssh "root@$CONTROL" "docker tag '$IMAGE' '$IMAGE_LATEST' && docker push '$IMAGE_LATEST'"
       fi
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
 
-# Pattern D deploy to control (10.11.204.9) — manual gate
+# Pattern D deploy to control — compose up the freshly pushed SHA, verify health.
 deploy:control:
   stage: deploy
-  image: $REGISTRY/alpine:latest
+  image: $REGISTRY/ci-tools:latest
   before_script:
-    - apk add --no-cache openssh-client
-    - mkdir -p ~/.ssh && echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-    - ssh-keyscan -H 10.11.204.9 >> ~/.ssh/known_hosts
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$CONTROL" >> ~/.ssh/known_hosts 2>/dev/null
+    - |
+      for v in JWT_SECRET ADMIN_PASSWORD; do
+        if [ -z "$(eval echo \$$v)" ]; then echo "Missing CI variable: $v" && exit 1; fi
+      done
   script:
-    - ssh root@10.11.204.9 "mkdir -p /opt/quiz/data"
-    - scp deploy/testlab/docker-compose.yml deploy/testlab/.env.production root@10.11.204.9:/opt/quiz/
-    - ssh root@10.11.204.9 "cd /opt/quiz && TAG=$CI_COMMIT_SHORT_SHA docker compose pull && TAG=$CI_COMMIT_SHORT_SHA docker compose up -d && docker compose ps && curl -sf http://localhost:3001/api/health"
+    - ssh "root@$CONTROL" "mkdir -p /opt/quiz/data"
+    - scp deploy/testlab/docker-compose.yml "root@$CONTROL:/opt/quiz/docker-compose.yml"
+    # Write secrets on control from masked CI variables (never committed).
+    - |
+      ssh "root@$CONTROL" "cat > /opt/quiz/.env.production <<EOF
+      DATABASE_URL=\"file:/app/data/quiz.db\"
+      JWT_SECRET=\"$JWT_SECRET\"
+      ADMIN_USERNAME=\"${ADMIN_USERNAME:-admin}\"
+      ADMIN_PASSWORD=\"$ADMIN_PASSWORD\"
+      PORT=3001
+      CORS_ORIGIN=\"https://quiz.testlab.local\"
+      EOF
+      chmod 600 /opt/quiz/.env.production"
+    - ssh "root@$CONTROL" "cd /opt/quiz && TAG=$CI_COMMIT_SHORT_SHA docker compose pull && TAG=$CI_COMMIT_SHORT_SHA docker compose up -d && docker compose ps"
+    - ssh "root@$CONTROL" "for i in 1 2 3 4 5 6; do curl -sf http://localhost:3001/api/health && exit 0; sleep 5; done; echo 'HEALTHCHECK FAILED' && docker logs quiz --tail 30 && exit 1"
   environment:
     name: production
     url: https://quiz.testlab.local
