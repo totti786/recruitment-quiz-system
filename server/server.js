@@ -153,6 +153,16 @@ app.param(['id', 'candidateId', 'candidateSessionId', 'sessionId', 'questionId',
   next()
 })
 
+// Serve static files from client build in production (must come BEFORE
+// the 404 handler, otherwise Express never reaches index.html for `/`).
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/dist')))
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'))
+  })
+}
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' })
@@ -160,15 +170,6 @@ app.use((req, res) => {
 
 // Global error handler
 app.use(errorHandler)
-
-// Serve static files from client build in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')))
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'))
-  })
-}
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
