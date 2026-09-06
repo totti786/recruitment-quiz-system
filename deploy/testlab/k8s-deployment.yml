@@ -15,7 +15,7 @@ stringData:
   ADMIN_USERNAME: "admin"
   ADMIN_PASSWORD: "REPLACE-WITH-STRONG-PASSWORD"
   PORT: "3001"
-  CORS_ORIGIN: "https://quiz.testlab.local"
+  CORS_ORIGIN: "https://quiz.testlab.local,https://control.testlab.local,http://10.11.204.9:3001"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

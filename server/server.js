@@ -39,6 +39,9 @@ if (!process.env.JWT_SECRET) {
 }
 
 export const app = express()
+// Behind traefik/proxy — needed for correct client IPs in rate limiting.
+// Value 1 trusts the single front proxy only.
+app.set('trust proxy', 1)
 const PORT = process.env.PORT || 3001
 
 const defaultAllowedOrigins = new Set([
