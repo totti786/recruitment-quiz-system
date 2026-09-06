@@ -1,71 +1,31 @@
+# Webhook-first pipeline (primary deploy path — no SSH in CI).
+# Runner only curls lab-hook actions on control; control builds (offline tar),
+# pushes to the local registry, and composes up. One secret: LAB_HOOK_TOKEN
+# (group variable). First deploy needs /opt/quiz/.env.production on control —
+# create once from deploy/testlab/.env.production.example (never committed).
 stages: [build, deploy]
 
 variables:
   REGISTRY: registry.testlab.local
-  CONTROL: 10.11.204.9
-  REPO_DIR: /home/mtdashli/recruitment-quiz-system-master
-  IMAGE: $REGISTRY/recruitment-quiz:$CI_COMMIT_SHORT_SHA
-  IMAGE_LATEST: $REGISTRY/recruitment-quiz:latest
-  # Force docker to talk to the local registry only (air-gapped)
-  DOCKER_BUILDKIT: "1"
+  HOOK: http://10.11.204.9:9000/hook
 
-# Build happens ON CONTROL via SSH — control already holds
-# quiz-alpine-offline.tar.gz (gitignored, placed out-of-band) and pushes
-# straight to the local registry. Runner never builds, never needs npm/apks.
 build:
   stage: build
-  image: $REGISTRY/ci-tools:latest
-  before_script:
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-    - ssh-keyscan -H "$CONTROL" >> ~/.ssh/known_hosts 2>/dev/null
-    - ssh "root@$CONTROL" "test -f $REPO_DIR/quiz-alpine-offline.tar.gz || (echo 'MISSING $REPO_DIR/quiz-alpine-offline.tar.gz' && exit 1)"
-  # Control never talks to GitLab: the runner already holds the exact SHA,
-  # so we ship it over SSH (air-gapped, no credentials needed on control).
+  image: $REGISTRY/alpine:latest
   script:
-    - ssh "root@$CONTROL" "rm -rf $REPO_DIR-ci && mkdir -p $REPO_DIR-ci && cp $REPO_DIR/quiz-alpine-offline.tar.gz $REPO_DIR-ci/"
-    # Ship the checked-out tree (exact SHA) — no git binary needed in the job image.
-    - tar -c --exclude=.git -f - . | ssh "root@$CONTROL" "tar -x -C $REPO_DIR-ci"
-    - ssh "root@$CONTROL" "cd $REPO_DIR-ci && docker build -t '$IMAGE' . && docker push '$IMAGE'"
-    - |
-      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
-        ssh "root@$CONTROL" "docker tag '$IMAGE' '$IMAGE_LATEST' && docker push '$IMAGE_LATEST'"
-      fi
+    - wget -qO- --header="X-Lab-Token: $LAB_HOOK_TOKEN"
+        --post-data="{\"sha\":\"$CI_COMMIT_SHA\",\"ref\":\"$CI_COMMIT_REF\"}"
+        "$HOOK/quiz-build"
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
 
-# Pattern D deploy to control — compose up the freshly pushed SHA, verify health.
 deploy:control:
   stage: deploy
-  image: $REGISTRY/ci-tools:latest
-  before_script:
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-    - ssh-keyscan -H "$CONTROL" >> ~/.ssh/known_hosts 2>/dev/null
-    - |
-      for v in JWT_SECRET ADMIN_PASSWORD; do
-        if [ -z "$(eval echo \$$v)" ]; then echo "Missing CI variable: $v" && exit 1; fi
-      done
+  image: $REGISTRY/alpine:latest
   script:
-    - ssh "root@$CONTROL" "mkdir -p /opt/quiz/data"
-    - scp deploy/testlab/docker-compose.yml "root@$CONTROL:/opt/quiz/docker-compose.yml"
-    # Write secrets on control from masked CI variables (never committed).
-    # NOTE: heredoc body is indented in YAML — strip leading spaces so dotenv
-    # sees clean KEY=value lines (a leading space would corrupt JWT_SECRET).
-    - |
-      ssh "root@$CONTROL" "cat > /opt/quiz/.env.production <<EOF
-      DATABASE_URL=\"file:/app/data/quiz.db\"
-      JWT_SECRET=\"$JWT_SECRET\"
-      ADMIN_USERNAME=\"${ADMIN_USERNAME:-admin}\"
-      ADMIN_PASSWORD=\"$ADMIN_PASSWORD\"
-      PORT=3001
-      CORS_ORIGIN=\"https://quiz.testlab.local,https://control.testlab.local,http://10.11.204.9:3001\"
-      EOF
-      sed -i 's/^ *//' /opt/quiz/.env.production
-      chmod 600 /opt/quiz/.env.production
-      grep -q '^JWT_SECRET=\"\?[^ ]' /opt/quiz/.env.production"
-    - ssh "root@$CONTROL" "cd /opt/quiz && TAG=$CI_COMMIT_SHORT_SHA docker compose pull && TAG=$CI_COMMIT_SHORT_SHA docker compose up -d && docker compose ps"
-    - ssh "root@$CONTROL" "for i in 1 2 3 4 5 6; do curl -sf http://localhost:3001/api/health && exit 0; sleep 5; done; echo 'HEALTHCHECK FAILED' && docker logs quiz --tail 30 && exit 1"
+    - wget -qO- --header="X-Lab-Token: $LAB_HOOK_TOKEN"
+        --post-data="{\"tag\":\"$CI_COMMIT_SHORT_SHA\"}"
+        "$HOOK/quiz-deploy"
   environment:
     name: production
     url: https://quiz.testlab.local
