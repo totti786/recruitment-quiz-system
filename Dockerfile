@@ -19,14 +19,19 @@ COPY README.md ./README.md
 ADD quiz-alpine-offline.tar.gz ./
 RUN ./server/node_modules/.bin/prisma generate --schema=./server/prisma/schema.prisma
 
-# --- runtime ---
+# --- runtime (fully offline: openssl via old image, no apk) ---
 FROM registry.testlab.local/library/node:20-alpine
 WORKDIR /app
-RUN apk add --no-cache openssl tini wget
+COPY --from=old /usr/bin/openssl /usr/bin/openssl
+COPY --from=old /usr/lib/libssl.so.3 /usr/lib/libssl.so.3
+COPY --from=old /usr/lib/libcrypto.so.3 /usr/lib/libcrypto.so.3
+RUN chmod +x /usr/bin/openssl
 
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV DATABASE_URL="file:/app/data/quiz.db"
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/server/node_modules/@prisma/engines/libquery_engine-linux-musl-openssl-3.0.x.so.node
+ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/server/node_modules/@prisma/engines/schema-engine-linux-musl-openssl-3.0.x
 
 # copy built artifacts
 COPY --from=builder /app/package.json ./package.json
@@ -46,5 +51,4 @@ WORKDIR /app/server
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=20s \
   CMD wget -qO- http://localhost:3001/api/health | grep -q '"status":"OK"'
 
-ENTRYPOINT ["tini", "--"]
-CMD ["sh", "-c", "npx prisma migrate deploy && node prisma/seed.js || true && node server.js"]
+CMD ["sh","-c","npx prisma migrate deploy && node prisma/seed.js || true && node server.js"]
