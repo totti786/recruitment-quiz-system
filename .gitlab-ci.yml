@@ -21,7 +21,7 @@ build:
     - ssh-keyscan -H "$CONTROL" >> ~/.ssh/known_hosts 2>/dev/null
     - ssh "root@$CONTROL" "test -f $REPO_DIR/quiz-alpine-offline.tar.gz || (echo 'MISSING $REPO_DIR/quiz-alpine-offline.tar.gz' && exit 1)"
   script:
-    - ssh "root@$CONTROL" "cd $REPO_DIR && git pull --ff-only && docker build -t '$IMAGE' . && docker push '$IMAGE'"
+    - ssh "root@$CONTROL" "cd $REPO_DIR && git fetch origin && git checkout $CI_COMMIT_SHA && docker build -t '$IMAGE' . && docker push '$IMAGE'"
     - |
       if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
         ssh "root@$CONTROL" "docker tag '$IMAGE' '$IMAGE_LATEST' && docker push '$IMAGE_LATEST'"
@@ -45,6 +45,8 @@ deploy:control:
     - ssh "root@$CONTROL" "mkdir -p /opt/quiz/data"
     - scp deploy/testlab/docker-compose.yml "root@$CONTROL:/opt/quiz/docker-compose.yml"
     # Write secrets on control from masked CI variables (never committed).
+    # NOTE: heredoc body is indented in YAML — strip leading spaces so dotenv
+    # sees clean KEY=value lines (a leading space would corrupt JWT_SECRET).
     - |
       ssh "root@$CONTROL" "cat > /opt/quiz/.env.production <<EOF
       DATABASE_URL=\"file:/app/data/quiz.db\"
@@ -54,7 +56,9 @@ deploy:control:
       PORT=3001
       CORS_ORIGIN=\"https://quiz.testlab.local\"
       EOF
-      chmod 600 /opt/quiz/.env.production"
+      sed -i 's/^ *//' /opt/quiz/.env.production
+      chmod 600 /opt/quiz/.env.production
+      grep -q '^JWT_SECRET=\"\?[^ ]' /opt/quiz/.env.production"
     - ssh "root@$CONTROL" "cd /opt/quiz && TAG=$CI_COMMIT_SHORT_SHA docker compose pull && TAG=$CI_COMMIT_SHORT_SHA docker compose up -d && docker compose ps"
     - ssh "root@$CONTROL" "for i in 1 2 3 4 5 6; do curl -sf http://localhost:3001/api/health && exit 0; sleep 5; done; echo 'HEALTHCHECK FAILED' && docker logs quiz --tail 30 && exit 1"
   environment:

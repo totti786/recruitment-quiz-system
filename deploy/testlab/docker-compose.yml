@@ -4,7 +4,9 @@ services:
     container_name: quiz
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3001:3001"
+      # Listen on all interfaces — proxy (10.11.204.4) reaches quiz via 10.11.204.9:3001.
+      # 127.0.0.1-only binding would refuse traefik's forwarded requests.
+      - "3001:3001"
     volumes:
       - ./data:/app/data
     env_file: .env.production

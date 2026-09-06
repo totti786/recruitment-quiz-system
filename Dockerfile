@@ -33,14 +33,13 @@ ENV DATABASE_URL="file:/app/data/quiz.db"
 ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/server/node_modules/@prisma/engines/libquery_engine-linux-musl-openssl-3.0.x.so.node
 ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/server/node_modules/@prisma/engines/schema-engine-linux-musl-openssl-3.0.x
 
-# copy built artifacts
+# copy built artifacts (server only needs its own node_modules + prebuilt dist;
+# root/client node_modules are build-time only and stay out of the runtime image)
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/client/dist ./client/dist
-# node_modules (keep dev deps for prisma migrate at runtime — ~50MB overhead, simplest for airgap)
-COPY --from=builder /app/node_modules ./node_modules
+# node_modules (keep dev deps for prisma migrate at runtime — simplest for airgap)
 COPY --from=builder /app/server/node_modules ./server/node_modules
-COPY --from=builder /app/client/node_modules ./client/node_modules
 
 RUN mkdir -p /app/data && chown -R node:node /app
 
