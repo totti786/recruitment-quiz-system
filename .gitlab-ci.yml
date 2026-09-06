@@ -20,8 +20,12 @@ build:
     - printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
     - ssh-keyscan -H "$CONTROL" >> ~/.ssh/known_hosts 2>/dev/null
     - ssh "root@$CONTROL" "test -f $REPO_DIR/quiz-alpine-offline.tar.gz || (echo 'MISSING $REPO_DIR/quiz-alpine-offline.tar.gz' && exit 1)"
+  # Control never talks to GitLab: the runner already holds the exact SHA,
+  # so we ship it over SSH (air-gapped, no credentials needed on control).
   script:
-    - ssh "root@$CONTROL" "cd $REPO_DIR && git fetch origin && git checkout $CI_COMMIT_SHA && docker build -t '$IMAGE' . && docker push '$IMAGE'"
+    - ssh "root@$CONTROL" "rm -rf $REPO_DIR-ci && mkdir -p $REPO_DIR-ci && cp $REPO_DIR/quiz-alpine-offline.tar.gz $REPO_DIR-ci/"
+    - git archive "$CI_COMMIT_SHA" | ssh "root@$CONTROL" "tar -x -C $REPO_DIR-ci"
+    - ssh "root@$CONTROL" "cd $REPO_DIR-ci && docker build -t '$IMAGE' . && docker push '$IMAGE'"
     - |
       if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
         ssh "root@$CONTROL" "docker tag '$IMAGE' '$IMAGE_LATEST' && docker push '$IMAGE_LATEST'"
