@@ -24,7 +24,8 @@ build:
   # so we ship it over SSH (air-gapped, no credentials needed on control).
   script:
     - ssh "root@$CONTROL" "rm -rf $REPO_DIR-ci && mkdir -p $REPO_DIR-ci && cp $REPO_DIR/quiz-alpine-offline.tar.gz $REPO_DIR-ci/"
-    - git archive "$CI_COMMIT_SHA" | ssh "root@$CONTROL" "tar -x -C $REPO_DIR-ci"
+    # Ship the checked-out tree (exact SHA) — no git binary needed in the job image.
+    - tar -c --exclude=.git -f - . | ssh "root@$CONTROL" "tar -x -C $REPO_DIR-ci"
     - ssh "root@$CONTROL" "cd $REPO_DIR-ci && docker build -t '$IMAGE' . && docker push '$IMAGE'"
     - |
       if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
