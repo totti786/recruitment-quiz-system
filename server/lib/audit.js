@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'async_hooks'
 import prisma from './prisma.js'
+import { auditEventsTotal } from './metrics.js'
 
 export const auditContext = new AsyncLocalStorage()
 
@@ -59,6 +60,11 @@ export function registerAuditMiddleware() {
         newValue = JSON.stringify(safe)
       }
     }
+
+    // Structured log line for Loki (Alloy ships stdout) + Prometheus counter.
+    // LogQL: sum by (action) (count_over_time({container="quiz"} | json | audit="true" [5m]))
+    console.log(JSON.stringify({ audit: true, action, entityType: model, actorId: ctx.userId }))
+    auditEventsTotal.inc({ action, entity: model })
 
     // Write audit entry fire-and-forget (doesn't block response)
     prisma.auditLog.create({
