@@ -6,4 +6,7 @@
 #   docker push registry.testlab.local/ci-tools:latest
 FROM registry.testlab.local/alpine:latest
 COPY deploy/testlab/ci-apks/*.apk /tmp/apks/
-RUN apk add --no-cache --allow-untrusted /tmp/apks/*.apk && rm -rf /tmp/apks && ssh -V
+# testlab.local.crt is host-only (untracked, copied in on the build host —
+# never committed): it lets wget/docker talk to gitlab/registry over lab TLS.
+COPY deploy/testlab/testlab.local.crt /usr/local/share/ca-certificates/testlab.local.crt
+RUN apk add --no-cache --allow-untrusted /tmp/apks/*.apk && update-ca-certificates && rm -rf /tmp/apks && ssh -V
