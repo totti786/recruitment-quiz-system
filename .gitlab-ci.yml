@@ -13,8 +13,9 @@ build:
   stage: build
   image: $REGISTRY/alpine:latest
   script:
-    - wget -qO- --header="X-Lab-Token: $LAB_HOOK_TOKEN"
-        --post-data="{\"sha\":\"$CI_COMMIT_SHA\",\"ref\":\"$CI_COMMIT_REF\"}"
+    - |
+      wget -qO- --header="X-Lab-Token: $LAB_HOOK_TOKEN" \
+        --post-data="{\"sha\":\"$CI_COMMIT_SHA\",\"ref\":\"$CI_COMMIT_REF\"}" \
         "$HOOK/quiz-build"
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
@@ -23,8 +24,9 @@ deploy:control:
   stage: deploy
   image: $REGISTRY/alpine:latest
   script:
-    - wget -qO- --header="X-Lab-Token: $LAB_HOOK_TOKEN"
-        --post-data="{\"tag\":\"$CI_COMMIT_SHORT_SHA\"}"
+    - |
+      wget -qO- --header="X-Lab-Token: $LAB_HOOK_TOKEN" \
+        --post-data="{\"tag\":\"$CI_COMMIT_SHORT_SHA\"}" \
         "$HOOK/quiz-deploy"
   environment:
     name: production
