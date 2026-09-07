@@ -9,7 +9,6 @@ import swaggerUi from 'swagger-ui-express'
 import { readFileSync } from 'fs'
 import { parseId } from './lib/http.js'
 import { registerAuditMiddleware } from './lib/audit.js'
-import { metricsMiddleware, metricsHandler } from './lib/metrics.js'
 
 import authRoutes from './routes/auth.js'
 import candidateRoutes from './routes/candidates.js'
@@ -115,7 +114,6 @@ app.use('/api/auth/change-password', authLimiter)
 // Body parser
 app.use(express.json({ limit: '10kb' }))
 app.use(express.urlencoded({ extended: true, limit: '10kb' }))
-app.use(metricsMiddleware)
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
@@ -137,9 +135,6 @@ app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/grading', gradingRoutes)
 app.use('/api/audit', auditRoutes)
 app.use('/api/admins', adminRoutes)
-
-// Prometheus exposition (scraped by Alloy; LAN-only via compose/traefik, no auth)
-app.get('/metrics', metricsHandler)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

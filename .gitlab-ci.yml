@@ -8,7 +8,7 @@ variables:
   REGISTRY: registry.testlab.local
   HOOK: http://10.11.204.9:9000/hook
   OFFLINE_PKG: quiz-offline
-  OFFLINE_VER: v2   # bump when server/client deps change (re-upload package first)
+  OFFLINE_VER: v1
   IMAGE: $REGISTRY/recruitment-quiz:$CI_COMMIT_SHORT_SHA
   IMAGE_LATEST: $REGISTRY/recruitment-quiz:latest
 
