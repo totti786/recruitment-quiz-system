@@ -1,22 +1,32 @@
-# Webhook-first pipeline (primary deploy path — no SSH in CI).
-# Runner only curls lab-hook actions on control; control builds (offline tar),
-# pushes to the local registry, and composes up. One secret: LAB_HOOK_TOKEN
-# (group variable). First deploy needs /opt/quiz/.env.production on control —
-# create once from deploy/testlab/.env.production.example (never committed).
+# Webhook-assisted pipeline: runner builds, hook deploys. No SSH in CI.
+# The 119M offline deps tar lives in GitLab Generic Packages (uploaded once
+# from control over the LAN — still fully air-gapped) and is fetched with the
+# job token. Build runs on the runner host daemon (socket-bound).
 stages: [build, deploy]
 
 variables:
   REGISTRY: registry.testlab.local
   HOOK: http://10.11.204.9:9000/hook
+  OFFLINE_PKG: quiz-offline
+  OFFLINE_VER: v1
+  IMAGE: $REGISTRY/recruitment-quiz:$CI_COMMIT_SHORT_SHA
+  IMAGE_LATEST: $REGISTRY/recruitment-quiz:latest
 
 build:
   stage: build
-  image: $REGISTRY/alpine:latest
+  image: $REGISTRY/ci-tools:latest
   script:
     - |
-      wget -qO- --header="X-Lab-Token: $LAB_HOOK_TOKEN" \
-        --post-data="{\"sha\":\"$CI_COMMIT_SHA\",\"ref\":\"$CI_COMMIT_REF\"}" \
-        "$HOOK/quiz-build"
+      wget -q -O quiz-alpine-offline.tar.gz \
+        --header="JOB-TOKEN: $CI_JOB_TOKEN" \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/$OFFLINE_PKG/$OFFLINE_VER/quiz-alpine-offline.tar.gz"
+      ls -lh quiz-alpine-offline.tar.gz
+    - docker build -t "$IMAGE" .
+    - docker push "$IMAGE"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "$IMAGE" "$IMAGE_LATEST" && docker push "$IMAGE_LATEST"
+      fi
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
 
