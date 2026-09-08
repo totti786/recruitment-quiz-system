@@ -6,7 +6,6 @@ stages: [build, deploy]
 
 variables:
   REGISTRY: registry.testlab.local
-  HOOK: http://10.11.204.9:9000/hook
   K3S_HOOK: http://10.11.204.11:9000/hook
   OFFLINE_PKG: quiz-offline
   OFFLINE_VER: v1
@@ -30,20 +29,6 @@ build:
       fi
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
-
-deploy:control:
-  stage: deploy
-  image: $REGISTRY/alpine:latest
-  script:
-    - |
-      wget -qO- --header="X-Lab-Token: $LAB_HOOK_TOKEN" \
-        --post-data="{\"tag\":\"$CI_COMMIT_SHORT_SHA\"}" \
-        "$HOOK/quiz-deploy"
-  environment:
-    name: production
-    url: https://quiz.testlab.local
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 deploy:k3s:
   stage: deploy
